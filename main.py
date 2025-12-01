@@ -271,7 +271,7 @@ def get_levels():
 
     # --- LEVEL 1: Patience (Sweep) ---
     l1_walls = list(base_walls)
-    l1_walls.extend([offset_rect((150, 100, 20, 500)), offset_rect((450, 100, 20, 500))])
+    l1_walls.extend([offset_rect((150, 100, 20, 600)), offset_rect((450, 100, 20, 600))])
     l1_guard1_path = [offset_point((300, 200)), offset_point((300, 200))] 
     l1_guard2_path = [offset_point((300, 500)), offset_point((300, 500))] 
     levels.append({
@@ -287,8 +287,8 @@ def get_levels():
         "key": offset_rect((300, 50, 40, 40)), "chest": offset_rect((250, 620, 40, 40)), 
         "walls": l1_walls,
         "guards": [
-            {"x": l1_guard1_path[0][0], "y": l1_guard1_path[0][1], "path": l1_guard1_path, "angle": 90, "id": 1, "speed": 0, "fov": 40, "len": 250, "sweep_speed": 1.5},
-            {"x": l1_guard2_path[0][0], "y": l1_guard2_path[0][1], "path": l1_guard2_path, "angle": 270, "id": 2, "speed": 0, "fov": 40, "len": 200, "sweep_speed": 1.5}
+            {"x": l1_guard1_path[0][0], "y": l1_guard1_path[0][1], "path": l1_guard1_path, "angle": 90, "id": 1, "speed": 0, "fov": 40, "len": 250, "sweep_speed": 4.5},
+            {"x": l1_guard2_path[0][0], "y": l1_guard2_path[0][1], "path": l1_guard2_path, "angle": 270, "id": 2, "speed": 0, "fov": 40, "len": 200, "sweep_speed": 4.5}
         ],
         "deactivators": [
             {"x": offset_point((1100, 600))[0], "y": offset_point((1100, 600))[1], "id": 2, "fake": False}, 
@@ -329,10 +329,11 @@ def get_levels():
             {"x": l2_guard3_path[0][0], "y": l2_guard3_path[0][1], "path": l2_guard3_path, "angle": 225, "id": 3, "speed": 0, "fov": 70, "len": 200, "sweep_speed": 2}
         ],
         "deactivators": [
-            {"x": offset_point((750, 600))[0], "y": offset_point((750, 600))[1], "id": 1, "fake": False}, 
-            {"x": offset_point((900, 100))[0], "y": offset_point((900, 100))[1], "id": 2, "fake": False}, 
-            {"x": offset_point((1200, 600))[0], "y": offset_point((1200, 600))[1], "id": 3, "fake": False}, 
-            {"x": offset_point((800, 450))[0], "y": offset_point((800, 450))[1], "id": 4, "fake": True},
+            {"x": offset_point((750, 500))[0], "y": offset_point((750, 500))[1], "id": 1, "fake": False}, 
+            {"x": offset_point((790, 400))[0], "y": offset_point((790, 400))[1], "id": 2, "fake": False}, 
+            {"x": offset_point((900, 500))[0], "y": offset_point((900, 500))[1], "id": 3, "fake": False},
+            {"x": offset_point((1030, 320))[0], "y": offset_point((1030, 320))[1], "id": 4, "fake": True}, 
+            {"x": offset_point((900, 200))[0], "y": offset_point((900, 200))[1], "id": 4, "fake": True},
             {"x": offset_point((1100, 150))[0], "y": offset_point((1100, 150))[1], "id": 5, "fake": True},
             {"x": offset_point((1000, 600))[0], "y": offset_point((1000, 600))[1], "id": 6, "fake": True}
         ],
@@ -460,7 +461,7 @@ class Game:
             player_obj = self.p1 if dw_data["player"] == "p1" else self.p2
             dw = DynamicWall(dw_data["rect"], dw_data["id"], player_obj)
             
-            # --- FIX: Explicitly set initial state for Level 3 ---
+            # --- Initial state for Level 3 dynamic walls ---
             if self.current_level_idx == 2:
                 if dw.link_id == 10: # P2 trap wall
                     dw.is_open = False # P2 starts trapped
@@ -534,7 +535,6 @@ class Game:
                     active_links[d.link_id] = True
             
             # 2. Process Sync Zones (P2 only)
-            # --- FIX: SyncZones must be updated to track P2's movement ---
             for sz in self.sync_zones:
                 sz.update(self.p2, self.p2.is_moving())
                 if sz.is_active:
@@ -549,13 +549,11 @@ class Game:
                     dw_data['is_open'] = active_links.get(10, False)
                     dw_data['wall'].is_open = active_links.get(10, False)
                 
-                # DW Link 11: P1 trap walls. Control is tied to key pickup.
+                # DW Link 11: P1 trap walls. Control is tied to key pickup. (Level 3 only)
                 elif link_id == 11:
-                    # Trapped state forces the walls shut
                     if self.p1.is_trapped:
                          dw_data['is_open'] = False
                          dw_data['wall'].is_open = False
-                    # On level reset, they are forced open in load_level.
             
             # 4. Control Guards
             for g in self.guards:
@@ -565,7 +563,6 @@ class Game:
                 # Check for collision with P1 only
                 if g.check_collision(self.p1.rect):
                     # --- Reset Logic ---
-                    # Reset P1
                     self.p1.reset() 
                     
                     # If P1 was holding the key, reset key state
@@ -573,19 +570,23 @@ class Game:
                         self.p1_has_key = False
                         self.key_rect = pygame.Rect(self.key_data)
                         
-                        # Reset P1 trap walls (link 11) to OPEN
-                        for dw_data in self.dynamic_walls.values():
-                            if dw_data['wall'].link_id == 11:
-                                dw_data['is_open'] = True
-                                dw_data['wall'].is_open = True
+                        # If trapped (L3), reset P1 trap walls (link 11) to OPEN
+                        if self.current_level_idx == 2:
+                            for dw_data in self.dynamic_walls.values():
+                                if dw_data['wall'].link_id == 11:
+                                    dw_data['is_open'] = True
+                                    dw_data['wall'].is_open = True
                         self.p1.is_trapped = False
             
             # 5. Check Key (P1 only)
             if not self.p1_has_key and self.p1.rect.colliderect(self.key_rect):
                 self.p1_has_key = True
-                self.p1.is_trapped = True # P1 is now trapped
+                
+                # --- FIX APPLIED HERE: ONLY TRAP P1 IN LEVEL 3 (index 2) ---
+                if self.current_level_idx == 2: 
+                    self.p1.is_trapped = True # P1 is trapped in the Escape Pod
+                
                 self.key_rect.topleft = (-100, -100) # Hide key
-                # Trap walls (Link 11) will close in step 3 (Control Dynamic Walls)
 
             # 6. Level 3 Escape Pod Movement Logic
             if self.current_level_idx == 2 and self.escape_pod:
