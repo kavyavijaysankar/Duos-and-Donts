@@ -6,7 +6,7 @@ import math
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 FPS = 60
-HUD_OFFSET = 60 # Shift the entire game world down to make space for the HUD
+HUD_OFFSET = 60
 
 # COLORS
 C_BG = (15, 15, 20)          # Deep Dark Blue
@@ -33,7 +33,7 @@ except pygame.error as e:
     sys.exit()
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Duos & Don'ts: Protocol Sync")
+pygame.display.set_caption("Duos & Don'ts")
 clock = pygame.time.Clock()
 font_title = pygame.font.SysFont("Arial", 50, bold=True)
 font_ui = pygame.font.SysFont("Consolas", 24)
@@ -275,13 +275,12 @@ def get_levels():
     l1_guard1_path = [offset_point((300, 200)), offset_point((300, 200))] 
     l1_guard2_path = [offset_point((300, 500)), offset_point((300, 500))] 
     levels.append({
-        "name": "Level 1: Patience Protocol (2 Guards)",
+        "name": "Level 0: Tutorial",
         "briefing": [
             "Objective: Retrieve the Key and return to the Treasure Chest.",
-            "P1 (Blue) must navigate the sweeping Guard 1.",
-            "P2 (Green) must deactivate Guard 2 by stepping on the purple switch (D2).",
-            "D2 is located in the bottom-right corner of P2's side.",
-            "P1 can only move past Guard 2 when P2 is actively holding D2."
+            "Player 1 (Blue) must navigate past the Guards and collect the key to unlock the treasure chest.",
+            "Player 2 (Green) must deactivate the Guards by stepping on the corresponding deactivators.",
+            "Player 1 can only move past the Guards when Player 2 is hovering over the deactivators."
         ],
         "p1_start": offset_point((300, 620)), "p2_start": offset_point((655, 350)), 
         "key": offset_rect((300, 50, 40, 40)), "chest": offset_rect((250, 620, 40, 40)), 
@@ -628,7 +627,7 @@ class Game:
         screen.fill(C_BG)
         
         if self.state == "MENU":
-            self.draw_centered_text("DUOS & DON'TS: PROTOCOL SYNC", -50, font_title, C_P1)
+            self.draw_centered_text("DUOS & DON'TS", -50, font_title, C_P1)
             self.draw_centered_text("Press SPACE to Begin Campaign", 50, font_ui)
             self.draw_centered_text("P1 (Blue, WASD) navigates hazards. P2 (Green, Arrows) opens the path.", 100, font_small)
             
