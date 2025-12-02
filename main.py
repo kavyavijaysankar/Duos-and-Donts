@@ -269,7 +269,7 @@ def get_levels():
 
     levels = []
 
-    # --- LEVEL 1: Patience (Sweep) ---
+    # LEVEL 1: Demo
     l1_walls = list(base_walls)
     l1_walls.extend([offset_rect((150, 100, 20, 600)), offset_rect((450, 100, 20, 600))])
     l1_guard1_path = [offset_point((300, 200)), offset_point((300, 200))] 
@@ -300,7 +300,7 @@ def get_levels():
     })
 
 
-    # --- LEVEL 2: Communication Grid (Maze + Real/Fake) ---
+    # LEVEL 2: Patience
     l2_walls = list(base_walls)
     l2_walls.extend([
         offset_rect((0, 200, 400, 20)), offset_rect((200, 450, 430, 20)), offset_rect((100, 350, 20, 100)), offset_rect((500, 150, 20, 100)), 
