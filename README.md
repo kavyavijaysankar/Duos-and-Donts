@@ -12,4 +12,6 @@ Execute the main Python script using:
 ```
 Python main.py
 ```
+Follow the on screen instructions to play the game.
+
 Alternatively, open the HTML file in a web browser to view a demo version of the game.
