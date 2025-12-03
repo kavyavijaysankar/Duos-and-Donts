@@ -628,8 +628,8 @@ class Game:
         
         if self.state == "MENU":
             self.draw_centered_text("DUOS & DON'TS", -50, font_title, C_P1)
-            self.draw_centered_text("Press SPACE to Begin Campaign", 50, font_ui)
-            self.draw_centered_text("P1 (Blue, WASD) navigates hazards. P2 (Green, Arrows) opens the path.", 100, font_small)
+            self.draw_centered_text("Press SPACE to Begin", 50, font_ui)
+            self.draw_centered_text("Player 1 (Blue) navigates obstacles using WASD keys. Player 2 (Green) clears Player 1's path using arrow keys.", 100, font_small)
             
         elif self.state == "BRIEFING":
             self.draw_briefing_screen()
