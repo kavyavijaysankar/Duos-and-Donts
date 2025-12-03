@@ -339,7 +339,7 @@ def get_levels():
             "Work together to get the Key to the Chest.",
         ],
         "p1_start": offset_point((70, 620)), "p2_start": offset_point((655, 350)), 
-        "key": offset_rect((300, 600, 40, 40)), "chest": offset_rect((300, 50, 40, 40)), 
+        "key": offset_rect((300, 580, 40, 40)), "chest": offset_rect((550, 50, 40, 40)), 
         "walls": l0_walls,
         "guards": [
             {"x": l0_guard1_path[0][0], "y": l0_guard1_path[0][1], "path": l0_guard1_path, "angle": 90, "id": 1, "speed": 0, "fov": 40, "len": 250, "sweep_speed": 4.5, "color": C_GUARD_DEFAULT},
@@ -351,7 +351,7 @@ def get_levels():
         ],
         # Fixed Tutorial Instructions using lists instead of dicts to be safer
         "instructions": [
-            {"lines": ["P1: Use WASD", "Avoid Vision"], "rect": offset_rect((320, 600, 200, 60))},
+            {"lines": ["Use the WASD keys", "Avoid coming in contact with the guards"], "rect": offset_rect((320, 600, 200, 60))},
             {"lines": ["P2: Use Arrows", "Hit Switches"], "rect": offset_rect((670, 320, 200, 60))},
             {"lines": ["Stand here", "to clear Path 1"], "rect": offset_rect((800, 100, 250, 60))},
             {"lines": ["Grab the Key!"], "rect": offset_rect((350, 50, 200, 50))},
@@ -392,14 +392,14 @@ def get_levels():
             {"x": l1_guard2_path[0][0], "y": l1_guard2_path[0][1], "path": l1_guard2_path, "angle": 90, "id": 2, "speed": 10, "fov": 45, "len": 150, "color": C_GUARD_DEFAULT},
             {"x": l1_guard3_path[0][0], "y": l1_guard3_path[0][1], "path": l1_guard3_path, "angle": 225, "id": 3, "speed": 0, "fov": 70, "len": 200, "sweep_speed": 2.5, "color": C_GUARD_DEFAULT},
             # FIRE OBSTACLE (Upward facing, Angle 90)
-            {"x": l1_fire_guard_loc[0], "y": l1_fire_guard_loc[1], "path": [], "angle": 90, "id": 7, "speed": 0, "fov": 360, "len": 80, "sweep_speed": 1, "color": C_FIRE}
+            #{"x": l1_fire_guard_loc[0], "y": l1_fire_guard_loc[1], "path": [], "angle": 90, "id": 7, "speed": 0, "fov": 360, "len": 80, "sweep_speed": 1, "color": C_FIRE}
         ],
         "deactivators": [
             {"x": offset_point((750, 500))[0], "y": offset_point((750, 500))[1], "id": 1, "fake": False, "color": C_DEACTIVATOR_DEFAULT}, 
             {"x": offset_point((790, 400))[0], "y": offset_point((790, 400))[1], "id": 2, "fake": False, "color": C_DEACTIVATOR_DEFAULT}, 
             {"x": offset_point((900, 500))[0], "y": offset_point((900, 500))[1], "id": 3, "fake": False, "color": C_DEACTIVATOR_DEFAULT},
             # FIRE DEACTIVATOR
-            {"x": offset_point((1100, 550))[0], "y": offset_point((1100, 550))[1], "id": 7, "fake": False, "color": C_FIRE},
+            #{"x": offset_point((1100, 550))[0], "y": offset_point((1100, 550))[1], "id": 7, "fake": False, "color": C_FIRE},
             {"x": offset_point((1030, 320))[0], "y": offset_point((1030, 320))[1], "id": 4, "fake": True, "color": C_DEACTIVATOR_DEFAULT}, 
             {"x": offset_point((900, 200))[0], "y": offset_point((900, 200))[1], "id": 4, "fake": True, "color": C_DEACTIVATOR_DEFAULT},
             {"x": offset_point((1100, 150))[0], "y": offset_point((1100, 150))[1], "id": 5, "fake": True, "color": C_DEACTIVATOR_DEFAULT},
