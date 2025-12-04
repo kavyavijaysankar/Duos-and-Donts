@@ -361,14 +361,14 @@ def get_levels():
             # P1: Start
             {"id": "p1_wasd", "lines": ["Use the WASD keys", "to navigate"], "rect": offset_rect((20, 360, 200, 60)), "start_active": True},
             # P1: Appear after P1 move
-            {"id": "p1_guard", "lines": ["Stay clear", "of the guards"], "rect": offset_rect((222, 240, 200, 60)), "start_active": False},
+            {"id": "p1_guard", "lines": ["Stay clear", "of the guards"], "rect": offset_rect((340, 50, 200, 60)), "start_active": False},
             {"id": "p1_key", "lines": ["Collect the key"], "rect": offset_rect((370, 550, 200, 40)), "start_active": False},
             # P1: Appear after key
             {"id": "p1_chest", "lines": ["Unlock the", "treasure chest"], "rect": offset_rect((350, 50, 200, 60)), "start_active": False},
             
             # P2: Start
-            {"id": "p2_arrows", "lines": ["Use the arrow keys", "to navigate"], "rect": offset_rect((650, 400, 200, 60)), "start_active": True},
-            {"id": "p2_deact", "lines": ["Deactivate the", "obstacles for Player 1"], "rect": offset_rect((800, 40, 250, 60)), "start_active": True},
+            {"id": "p2_arrows", "lines": ["Deactivate the", "obstacles for Player 1"], "rect": offset_rect((800, 40, 250, 60)), "start_active": True},
+            {"id": "p2_deact", "lines": ["Use the Arrow keys", "to navigate"], "rect": offset_rect((650, 400, 200, 60)), "start_active": True},
         ],
         "dynamic_walls": [],
         "pressure_plates": [],
@@ -379,16 +379,16 @@ def get_levels():
     # --- LEVEL 1 ---
     l1_walls = list(base_walls)
     l1_walls.extend([
-        offset_rect((0, 200, 400, 20)), offset_rect((200, 450, 430, 20)), offset_rect((100, 350, 20, 100)), offset_rect((500, 150, 20, 100)), 
+        offset_rect((0, 200, 400, 20)), offset_rect((200, 450, 430, 20)), offset_rect((100, 280, 20, 100)), offset_rect((500, 150, 20, 100)), 
         offset_rect((700, 150, 20, 400)), offset_rect((850, 280, 20, 400)), offset_rect((1000, 150, 20, 400)), 
         offset_rect((700, 450, 150, 20)), offset_rect((900, 450, 100, 20)), offset_rect((850, 280, 200, 20)), 
     ])
     l1_p2_start = offset_point((750, 50)) 
-    l1_guard1_path = [offset_point((50, 300)), offset_point((550, 300))]
-    l1_guard2_path = [offset_point((400, 100)), offset_point((400, 400))]
+    l1_guard1_path = [offset_point((200, 300)), offset_point((550, 300))]
+    l1_guard2_path = [offset_point((400, 100)), offset_point((400, 300))]
     l1_guard3_path = [offset_point((580, 580)), offset_point((580, 580))]
     
-    l1_fire_guard_loc = offset_point((100, 600))
+    # l1_fire_guard_loc = offset_point((100, 600))
 
     levels.append({
         "name": "Level 1: Communication Grid",
@@ -403,17 +403,20 @@ def get_levels():
         "walls": l1_walls,
         "guards": [
             {"x": l1_guard1_path[0][0], "y": l1_guard1_path[0][1], "path": l1_guard1_path, "angle": 0, "id": 1, "speed": 18, "fov": 45, "len": 100, "color": C_GUARD_DEFAULT},
-            {"x": l1_guard2_path[0][0], "y": l1_guard2_path[0][1], "path": l1_guard2_path, "angle": 90, "id": 2, "speed": 10, "fov": 45, "len": 150, "color": C_GUARD_DEFAULT},
+            {"x": l1_guard2_path[0][0], "y": l1_guard2_path[0][1], "path": l1_guard2_path, "angle": 90, "id": 2, "speed": 12, "fov": 45, "len": 150, "color": C_GUARD_DEFAULT},
             {"x": l1_guard3_path[0][0], "y": l1_guard3_path[0][1], "path": l1_guard3_path, "angle": 225, "id": 3, "speed": 0, "fov": 70, "len": 200, "sweep_speed": 2.5, "color": C_GUARD_DEFAULT},
             # FIRE OBSTACLE (Upward facing, Angle 90)
-            {"x": l1_fire_guard_loc[0], "y": l1_fire_guard_loc[1], "path": [], "angle": 90, "id": 7, "speed": 0, "fov": 360, "len": 80, "sweep_speed": 1, "color": C_FIRE}
+            # {"x": l1_fire_guard_loc[0], "y": l1_fire_guard_loc[1], "path": [], "angle": 90, "id": 7, "speed": 0, "fov": 360, "len": 80, "sweep_speed": 1, "color": C_FIRE}
         ],
         "deactivators": [
+            # real deactivators
             {"x": offset_point((750, 500))[0], "y": offset_point((750, 500))[1], "id": 1, "fake": False, "color": C_DEACTIVATOR_DEFAULT}, 
             {"x": offset_point((790, 400))[0], "y": offset_point((790, 400))[1], "id": 2, "fake": False, "color": C_DEACTIVATOR_DEFAULT}, 
             {"x": offset_point((900, 500))[0], "y": offset_point((900, 500))[1], "id": 3, "fake": False, "color": C_DEACTIVATOR_DEFAULT},
             # FIRE DEACTIVATOR
-            {"x": offset_point((1100, 550))[0], "y": offset_point((1100, 550))[1], "id": 7, "fake": False, "color": C_FIRE},
+            # {"x": offset_point((1100, 550))[0], "y": offset_point((1100, 550))[1], "id": 7, "fake": False, "color": C_FIRE},
+
+            #Fake deactivators
             {"x": offset_point((1030, 320))[0], "y": offset_point((1030, 320))[1], "id": 4, "fake": True, "color": C_DEACTIVATOR_DEFAULT}, 
             {"x": offset_point((900, 200))[0], "y": offset_point((900, 200))[1], "id": 4, "fake": True, "color": C_DEACTIVATOR_DEFAULT},
             {"x": offset_point((1100, 150))[0], "y": offset_point((1100, 150))[1], "id": 5, "fake": True, "color": C_DEACTIVATOR_DEFAULT},
