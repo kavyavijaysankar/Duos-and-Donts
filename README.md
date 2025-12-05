@@ -8,7 +8,7 @@ Install the pygame library using:
 pip install pygame
 ``` 
 
-Execute the main Python script using:
+Execute the main Python script to start the game:
 ```
 Python main.py
 ```
