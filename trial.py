@@ -285,20 +285,19 @@ class Deactivator:
         self.is_pressed = self.rect.colliderect(player_rect)
 
     def draw(self, surface):
-        # NOTE: is_fake check removed for drawing logic as requested to make all deactivators look identical
+        # Drawing logic adjusted to make fake and real ones look the same in Level 1 (using base_color)
         if self.is_pressed and not self.is_fake:
             color = (150, 255, 150) # Green when active
             frame_color = (50, 0, 50)
         else:
             color = self.base_color 
-            frame_color = (max(0, self.base_color[0]-50), max(0, self.base_color[1]-50), max(0, self.base_color[2]-50))
+            # Ensure frame color has enough contrast, especially if base_color is C_GUARD_DEFAULT
+            if self.base_color == C_GUARD_DEFAULT:
+                 frame_color = (150, 20, 20)
+            else:
+                 frame_color = (max(0, self.base_color[0]-50), max(0, self.base_color[1]-50), max(0, self.base_color[2]-50))
             
         pygame.draw.rect(surface, color, self.rect, border_radius=8)
-        
-        # Adjusting frame color if base color is red/guard default to prevent pure black
-        if self.base_color == C_GUARD_DEFAULT:
-             frame_color = (150, 20, 20)
-             
         pygame.draw.rect(surface, frame_color, self.rect.inflate(-10, -10), border_radius=4)
         if self.is_pressed:
              pygame.draw.circle(surface, (255, 255, 255), self.rect.center, 5)
@@ -609,22 +608,30 @@ class Game:
 
             # --- TUTORIAL LOGIC UPDATE ---
             if self.current_level_idx == 0:
+                p1_rect = self.p1.rect
+                
+                center_lane_min_x = offset_point((150, 0))[0] 
+                center_lane_max_x = offset_point((450, 0))[0]
+                # Y barrier for crossing the first obstacle (approx 300 game coords)
+                y_barrier = offset_point((0, 300))[1]
+
                 for instr in self.tutorial_instructions:
                     if not instr.active or instr.completed: continue
                     
                     # Logic for each ID
                     if instr.id == "p1_wasd":
                         # Disappear if P1 moves/touches it
-                        if self.p1.rect.colliderect(instr.rect):
+                        if p1_rect.colliderect(instr.rect):
                             instr.completed = True
                             # Activate next P1 steps (guards and key appear same time)
                             for next_i in self.tutorial_instructions:
                                 if next_i.id in ["p1_guard", "p1_key"]: next_i.active = True
                     
                     elif instr.id == "p1_guard":
-                        # DISAPPEAR ONLY AFTER P1 HAS CROSSED THE FIRST OBSTACLE (e.g., Y position less than the horizontal wall at 300)
-                        # The horizontal wall starts at y=300 (or 360 offset). Crossing it means reaching y < 360
-                        if self.p1.rect.y < offset_point((0, 240))[1]: 
+                        # Disappear when P1's top edge is above the y=300 game coord AND P1 is in the center lane
+                        if p1_rect.top < y_barrier and \
+                           p1_rect.right > center_lane_min_x and \
+                           p1_rect.left < center_lane_max_x:
                             instr.completed = True
                     
                     elif instr.id == "p1_key":
@@ -677,6 +684,15 @@ class Game:
                 g.active = not active_links.get(g.link_id, False)
                 g.update()
                 if g.check_collision(self.p1.rect):
+                    
+                    # --- NEW LOGIC: RESET TUTORIAL INSTRUCTION ON COLLISION ---
+                    if self.current_level_idx == 0:
+                        for instr in self.tutorial_instructions:
+                            if instr.id == "p1_guard" and instr.completed:
+                                instr.completed = False
+                                break # Found the instruction, break inner loop
+                    # -----------------------------------------------------------
+
                     self.p1.reset() 
                     if self.p1_has_key:
                         self.p1_has_key = False
@@ -835,3 +851,4 @@ if __name__ == '__main__':
         if pygame.get_init():
             pygame.quit()
         sys.exit(0)
+
