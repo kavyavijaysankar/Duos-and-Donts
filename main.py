@@ -229,7 +229,7 @@ class Guard:
 
     def draw(self, surface):
         if self.color == C_FIRE:
-            # Custom Fire Visual
+            # Fire obstacle Visual
             if self.active:
                 flicker = (pygame.time.get_ticks() // 100) % 3
                 cx, cy = self.rect.centerx, self.rect.bottom
@@ -331,7 +331,7 @@ def get_levels():
 
     levels = []
 
-    # --- TUTORIAL (Level 0) ---
+    # Tutorial (Level 0)
     l0_walls = list(base_walls)
     l0_walls.append(offset_rect((150, 100, 20, 600)))
     l0_walls.append(offset_rect((450, 0, 20, 520)))
@@ -378,7 +378,7 @@ def get_levels():
     })
 
 
-    # --- LEVEL 1 ---
+    # LEVEL 1
     l1_walls = list(base_walls)
     l1_walls.extend([
         offset_rect((0, 200, 400, 20)), offset_rect((200, 450, 430, 20)), offset_rect((100, 280, 20, 100)), offset_rect((500, 150, 20, 100)), 
@@ -390,14 +390,14 @@ def get_levels():
     l1_guard2_path = [offset_point((400, 100)), offset_point((400, 300))]
     l1_guard3_path = [offset_point((580, 580)), offset_point((580, 580))]
     
+    # fire obstacle removed for now.
     # l1_fire_guard_loc = offset_point((100, 600))
 
     levels.append({
-        "name": "Level 1: Communication Grid",
+        "name": "Level 1: The Patience Grid",
         "briefing": [
-            "P1 must navigate fast-moving guards and the new FIRE obstacle.",
-            "P2 must find the correct colored switches.",
-            "The ORANGE switch disables the Fire.",
+            "Player 1 must navigate fast-moving guards.",
+            "Player 2 must find the correct colored switches.",
             "Communicate efficiently."
         ],
         "p1_start": offset_point((50, 50)), "p2_start": l1_p2_start,
@@ -407,18 +407,19 @@ def get_levels():
             {"x": l1_guard1_path[0][0], "y": l1_guard1_path[0][1], "path": l1_guard1_path, "angle": 0, "id": 1, "speed": 18, "fov": 45, "len": 100, "color": C_GUARD_DEFAULT},
             {"x": l1_guard2_path[0][0], "y": l1_guard2_path[0][1], "path": l1_guard2_path, "angle": 90, "id": 2, "speed": 12, "fov": 45, "len": 150, "color": C_GUARD_DEFAULT},
             {"x": l1_guard3_path[0][0], "y": l1_guard3_path[0][1], "path": l1_guard3_path, "angle": 225, "id": 3, "speed": 0, "fov": 70, "len": 200, "sweep_speed": 2.5, "color": C_GUARD_DEFAULT},
-            # FIRE OBSTACLE (Upward facing, Angle 90)
+            
+            # Fire obstacle removed for now.
             # {"x": l1_fire_guard_loc[0], "y": l1_fire_guard_loc[1], "path": [], "angle": 90, "id": 7, "speed": 0, "fov": 360, "len": 80, "sweep_speed": 1, "color": C_FIRE}
         ],
         "deactivators": [
-            # real deactivators - ALL NOW USE C_GUARD_DEFAULT (RED)
+            # real deactivators
             {"x": offset_point((750, 500))[0], "y": offset_point((750, 500))[1], "id": 1, "fake": False, "color": C_GUARD_DEFAULT}, 
             {"x": offset_point((790, 400))[0], "y": offset_point((790, 400))[1], "id": 2, "fake": False, "color": C_GUARD_DEFAULT}, 
             {"x": offset_point((900, 500))[0], "y": offset_point((900, 500))[1], "id": 3, "fake": False, "color": C_GUARD_DEFAULT},
             # FIRE DEACTIVATOR
             # {"x": offset_point((1100, 550))[0], "y": offset_point((1100, 550))[1], "id": 7, "fake": False, "color": C_FIRE},
 
-            #Fake deactivators - ALL NOW USE C_GUARD_DEFAULT (RED)
+            #Fake deactivators
             {"x": offset_point((1030, 320))[0], "y": offset_point((1030, 320))[1], "id": 4, "fake": True, "color": C_GUARD_DEFAULT}, 
             {"x": offset_point((900, 200))[0], "y": offset_point((900, 200))[1], "id": 4, "fake": True, "color": C_GUARD_DEFAULT},
             {"x": offset_point((1100, 150))[0], "y": offset_point((1100, 150))[1], "id": 5, "fake": True, "color": C_GUARD_DEFAULT},
@@ -685,13 +686,12 @@ class Game:
                 g.update()
                 if g.check_collision(self.p1.rect):
                     
-                    # --- NEW LOGIC: RESET TUTORIAL INSTRUCTION ON COLLISION ---
+                    # reset instruction box 1 if collision occurs
                     if self.current_level_idx == 0:
                         for instr in self.tutorial_instructions:
                             if instr.id == "p1_guard" and instr.completed:
                                 instr.completed = False
                                 break # Found the instruction, break inner loop
-                    # -----------------------------------------------------------
 
                     self.p1.reset() 
                     if self.p1_has_key:
