@@ -2,7 +2,7 @@ import pygame
 import sys
 import math
 
-# --- CONFIGURATION ---
+# Screen settings
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 FPS = 60
@@ -32,7 +32,7 @@ C_BUTTON_IDLE = (40, 40, 50)
 C_TUTORIAL_BOX = (50, 50, 60, 200) 
 C_TUTORIAL_BORDER = (200, 200, 200)
 
-# --- ENGINE SETUP ---
+# ENGINE SETUP
 try:
     pygame.init()
 except pygame.error as e:
@@ -49,7 +49,7 @@ font_ui = pygame.font.SysFont("Consolas", 24)
 font_small = pygame.font.SysFont("Consolas", 18)
 font_rules = pygame.font.SysFont("Consolas", 20)
 
-# --- HELPERS ---
+# HELPERS
 def offset_rect(r):
     x, y, w, h = r
     return (x, y + HUD_OFFSET, w, h)
@@ -77,7 +77,7 @@ def draw_centered_text(surface, text, y_off, font, color=C_TEXT):
     rect = surf.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + y_off))
     surface.blit(surf, rect)
 
-# --- CLASSES ---
+# classes
 
 class TutorialInstruction:
     """Floating box for instructions with state management."""
@@ -92,7 +92,7 @@ class TutorialInstruction:
         if not self.active or self.completed:
             return
 
-        # Create a transparent surface
+        # transparent surface
         s = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
         s.fill(C_TUTORIAL_BOX) # Fill with transparent color
         surface.blit(s, (self.rect.x, self.rect.y))
@@ -314,7 +314,7 @@ class SyncZone:
         pygame.draw.rect(surface, color, self.rect, border_radius=12)
         pygame.draw.rect(surface, (100, 50, 0), self.rect.inflate(-10, -10), border_radius=8)
 
-# --- LEVEL DEFINITIONS ---
+# Level defs
 
 def get_levels():
     
@@ -328,7 +328,7 @@ def get_levels():
 
     levels = []
 
-    # --- LEVEL 0: TUTORIAL ---
+    # level 0: tutorial
     l0_walls = list(base_walls)
     l0_walls.append(offset_rect((150, 100, 20, 600)))
     l0_walls.append(offset_rect((450, 0, 20, 520)))
@@ -337,8 +337,8 @@ def get_levels():
         "name": "Level 0: Tutorial",
         "briefing": [
             "Welcome to Duos & Don'ts.",
-            "Blue (WASD): Learn navigation, key retrieval, and chest delivery.",
-            "Green (Arrows): No role in this level. Just observe and communicate.",
+            "Player 1 - Blue: Navigate the maze, collect the key, and open the chest.",
+            "Player 2 - Green: No role in this level.",
         ],
         "p1_start": offset_point((70, 540)), "p2_start": offset_point((1230, 30)), 
         "key": offset_rect((300, 580, 40, 40)), "chest": offset_rect((550, 50, 40, 40)), 
@@ -346,16 +346,12 @@ def get_levels():
         "guards": [],
         "deactivators": [],
         "instructions": [
-            # P1: WASD - Fixed Y coordinate so it is visible
+            # player 1 instructions
             {"id": "p1_wasd", "lines": ["Use the WASD", "keys to navigate"], "rect": offset_rect((20, 580, 200, 60)), "start_active": True},
-            
-            # P1: Key - Starts active, disappears when key collected
             {"id": "p1_key", "lines": ["Collect the key"], "rect": offset_rect((350, 580, 200, 40)), "start_active": True},
-            
-            # P1: Chest - Unchanged logic (appears after key)
             {"id": "p1_chest", "lines": ["Unlock the", "treasure chest"], "rect": offset_rect((345, 50, 200, 60)), "start_active": False},
             
-            # P2: Instructions
+            # Player 2: Instructions
             {"id": "p2_arrows", "lines": ["Use the Arrow", "keys to navigate"], "rect": offset_rect((1060, 80, 200, 60)), "start_active": True},
             {"id": "p2_no_role", "lines": ["You don't have any", " roles in this level"], "rect": offset_rect((850, 320, 240, 60)), "start_active": True},
         ],
@@ -364,7 +360,7 @@ def get_levels():
         "escape_pod_data": None
     })
 
-    # --- LEVEL 1: THE BASICS ---
+    # Level 1: with obstacles
     l1_walls = list(base_walls)
     l1_walls.append(offset_rect((150, 100, 20, 600)))
     l1_walls.append(offset_rect((450, 0, 20, 520)))
@@ -372,7 +368,7 @@ def get_levels():
     l1_guard1_path = [offset_point((300, 200)), offset_point((300, 200))] 
     l1_guard2_path = [offset_point((300, 500)), offset_point((300, 500))] 
     
-    # NEW LEVEL 1 INSTRUCTION COORDINATES
+    # INSTRUCTION COORDINATES
     P1_ZONE_YELLOW_RECT_DATA = (180, 250, 465, 400) # Area Player 1 enters after first obstacle
     P1_ZONE_PINK_RECT_DATA = (510, 400, 465, 200)   # Area Player 1 enters after second obstacle
     P1_HINT_TOP = (400, 80)       # P1 Hint position near Top Guard
@@ -397,25 +393,23 @@ def get_levels():
             {"x": l1_guard2_path[0][0], "y": l1_guard2_path[0][1], "path": l1_guard2_path, "angle": 270, "id": 2, "speed": 0, "fov": 40, "len": 200, "sweep_speed": 4.5, "color": C_GUARD_DEFAULT}
         ],
         "deactivators": [
-            # Deactivator for Top Guard (ID 1) -> Located Top Right
+            # Deactivator for Top Guard
             {"x": offset_point((750, 100))[0], "y": offset_point((750, 100))[1], "id": 1, "fake": False, "color": C_GUARD_DEFAULT},  
-            # Deactivator for Bottom Guard (ID 2) -> Located Bottom Right
+            # Deactivator for Bottom Guard
             {"x": offset_point((1100, 600))[0], "y": offset_point((1100, 600))[1], "id": 2, "fake": False, "color": C_GUARD_DEFAULT}, 
         ],
         "instructions": [
-            # P1: Guard Instruction - Starts near the Top Guard (Guard 1)
+            # P1 instructions
             {"id": "p1_guard", "lines": ["Stay clear", "of the guards"], "rect": offset_rect(P1_HINT_TOP + (200, 60)), "start_active": True},
-            
-            # P1: Key - Standard
             {"id": "p1_key", "lines": ["Collect the key"], "rect": offset_rect((370, 550, 200, 40)), "start_active": False},
             
-            # P2: Deactivator Instruction - Starts near the Top Deactivator (ID 1)
+            # P2 instructions
             {"id": "p2_deact_move", "lines": ["Hover over the deactivator", "to disable the obstacles"], "rect": offset_rect(P2_HINT_TOP + (300, 60)), "start_active": True},
         ],
         "dynamic_walls": [],
         "pressure_plates": [],
         "escape_pod_data": None,
-        # NEW custom data for instruction logic
+        # instruction logic
         "custom_data": {
             "p1_zone_yellow_rect": P1_ZONE_YELLOW_RECT_DATA,
             "p1_zone_pink_rect": P1_ZONE_PINK_RECT_DATA,
@@ -425,7 +419,7 @@ def get_levels():
             "p2_hint_bottom": P2_HINT_BOTTOM,
         }
     })
-# --- LEVEL 2: PATIENCE GRID ---
+# Level 2: patience
 
     l2_walls = list(base_walls)
     l2_walls.extend([
@@ -471,7 +465,7 @@ def get_levels():
         "escape_pod_data": None
     })
 
-    # --- LEVEL 3 ---
+    # LEVEL 3 - STILL BEING DEVELOPED, VERY BUGGY AND VISUALS ARE BAD
     l3_walls = list(base_walls)
     l3_walls.extend([
         offset_rect((10, 300, 620, 20)), 
@@ -526,7 +520,7 @@ def get_levels():
         }
     })
 
-    # --- LEVEL 4 (Dummy) ---
+    # Level 4 (Dummy) - ALSO UNDER DEVELOPMENT. NO VISUALS YET
     levels.append({
         "name": "Level 4: Under Construction",
         "briefing": [
@@ -545,7 +539,7 @@ def get_levels():
 
     return levels
 
-# --- GAME MANAGER ---
+# game manager
 
 class Game:
     def __init__(self):
@@ -560,7 +554,6 @@ class Game:
             {"text": "Level 4", "level_idx": 4, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 550, 200, 50)},
         ]
         
-        # New flags to track persistent state in Level 1
         self.p1_passed_obs1 = False
         self.p1_passed_obs2 = False
 
@@ -577,13 +570,11 @@ class Game:
         self.level_briefing = data["briefing"]
         self.walls = [pygame.Rect(w) for w in data["walls"]]
         
-        # Reset P1 movement controls for Level 0/1 specific logic (if needed in future)
         p1_controls = {'up': pygame.K_w, 'down': pygame.K_s, 'left': pygame.K_a, 'right': pygame.K_d}
         # Level 0 logic change to P1 start:
         if idx == 0:
              p1_controls = {'up': pygame.K_w, 'down': pygame.K_s, 'left': pygame.K_a, 'right': pygame.K_d}
-        # Level 1 logic: P1 moves with WASD, but is confined to the left half (x < 635)
-        # Assuming P1 controls are always WASD, the constraints are handled in Player.update
+
         self.p1 = Player(data["p1_start"][0], data["p1_start"][1], C_P1, p1_controls, "p1")
         self.p2 = Player(data["p2_start"][0], data["p2_start"][1], C_P2, {'up': pygame.K_UP, 'down': pygame.K_DOWN, 'left': pygame.K_LEFT, 'right': pygame.K_RIGHT}, "p2")
         self.key_data = data["key"] 
@@ -623,13 +614,13 @@ class Game:
         self.p1_zone_yellow = None
         self.p1_zone_pink = None
         
-        # TUTORIAL INSTRUCTION SETUP
+        # instruction set up
         self.tutorial_instructions = []
         for instr in data.get("instructions", []):
             self.tutorial_instructions.append(
                 TutorialInstruction(instr["id"], instr["lines"], instr["rect"], instr.get("start_active", False))
             )
-        # Convert custom zone data to Rect objects with HUD offset
+
         if data.get("custom_data"):
             custom_data = data["custom_data"]
             if custom_data.get("p1_zone_yellow_rect"):
@@ -672,7 +663,7 @@ class Game:
             self.p1.update(keys, self.walls, self.dynamic_walls, self.escape_pod)
             self.p2.update(keys, self.walls, self.dynamic_walls)
 
-            # --- DYNAMIC INSTRUCTION LOGIC (LEVEL 1) ---
+            # instruction logic for level 1
             if self.current_level_idx == 1:
                 
                 custom_data = self.levels[self.current_level_idx]["custom_data"]
@@ -716,7 +707,7 @@ class Game:
                         p1_guard_instr.active = False
                         p2_deact_instr.active = False
 
-            # --- TUTORIAL/LEVEL 0 LOGIC UPDATE ---
+            # TUTORIAL LOGIC UPDATE
             elif self.current_level_idx == 0:
                 # Level 0: Key Instruction removed when key collected
                 p1_key_instr = next((i for i in self.tutorial_instructions if i.id == "p1_key"), None)
@@ -750,7 +741,7 @@ class Game:
                 g.active = not active_links.get(g.link_id, False)
                 g.update()
                 
-                # --- COLLISION / RESPAWN LOGIC ---
+                # COLLISION & RESPAWN LOGIC 
                 if g.check_collision(self.p1.rect):
                     self.p1.reset() 
                     
@@ -772,7 +763,7 @@ class Game:
             if not self.p1_has_key and self.p1.rect.colliderect(self.key_rect):
                 self.p1_has_key = True
                 
-                # Activate P1 Chest Instruction (L0/L1) - though L1 chest instr removed
+                # Activate P1 Chest Instruction (L0/L1)
                 p1_chest_instr = next((i for i in self.tutorial_instructions if i.id == "p1_chest"), None)
                 if p1_chest_instr: p1_chest_instr.active = True
 
@@ -885,7 +876,7 @@ class Game:
         draw_centered_text(screen, "Press ENTER to Begin Mission", 250, font_ui, C_KEY)
 
 
-# --- MAIN LOOP EXECUTION ---
+# MAIN LOOP EXECUTION
 if __name__ == '__main__':
     try:
         game = Game()
