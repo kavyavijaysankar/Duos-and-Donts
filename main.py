@@ -464,7 +464,7 @@ def get_levels():
             {"x": offset_point((1100, 150))[0], "y": offset_point((1100, 150))[1], "id": 5, "fake": True, "color": C_GUARD_DEFAULT},
         ],
         "instructions": [
-            {"id": "l2_p2_fake", "lines": ["There are 3 real ", "deactivators", "and 3 fake ones"], "rect": offset_rect((980, 30, 280, 72)), "start_active": True},
+            {"id": "l2_p2_fake", "lines": ["There are 3 real ", "deactivators", "and 3 fake ones"], "rect": offset_rect((1050, 30, 210, 72)), "start_active": True},
         ],
         "dynamic_walls": [],
         "pressure_plates": [],
@@ -846,14 +846,13 @@ class Game:
                 overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
                 overlay.fill((0,0,0,150))
                 screen.blit(overlay, (0,0))
-                draw_centered_text(screen, "LEVEL CLEARED - PROTOCOL SYNCED", -30, font_title, C_KEY)
+                draw_centered_text(screen, "LEVEL CLEARED", -30, font_title, C_KEY)
                 draw_centered_text(screen, "Press 'ENTER' for Next Level", 30, font_ui)
                 draw_centered_text(screen, "Press 'R' to Replay Level", 70, font_small)
 
         elif self.state == "CAMPAIGN_COMPLETE":
-            draw_centered_text(screen, "PROTOCOL COMPLETE: SUCCESSFUL SYNC", -50, font_title, C_KEY)
-            draw_centered_text(screen, "All levels cleared. Interdependence achieved.", 50, font_ui)
-            draw_centered_text(screen, "Click 'R' to Return to Menu", 100, font_ui)
+            draw_centered_text(screen, "All levels cleared!", 50, font_ui)
+            draw_centered_text(screen, "Click 'M' to Return to Menu", 100, font_ui)
 
         pygame.display.flip()
 
