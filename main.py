@@ -373,8 +373,8 @@ def get_levels():
     l1_guard2_path = [offset_point((300, 500)), offset_point((300, 500))] 
     
     # NEW LEVEL 1 INSTRUCTION COORDINATES
-    P1_ZONE_YELLOW_RECT_DATA = (170, 0, 465, 400) # Area Player 1 enters after first obstacle
-    P1_ZONE_PINK_RECT_DATA = (170, 520, 465, 200)   # Area Player 1 enters after second obstacle
+    P1_ZONE_YELLOW_RECT_DATA = (180, 250, 465, 400) # Area Player 1 enters after first obstacle
+    P1_ZONE_PINK_RECT_DATA = (510, 400, 465, 200)   # Area Player 1 enters after second obstacle
     P1_HINT_TOP = (400, 80)       # P1 Hint position near Top Guard
     P1_HINT_BOTTOM = (440, 495)    # P1 Hint position near Bottom Guard
     P2_HINT_TOP = (950, 120)       # P2 Hint position near Top Deactivator
