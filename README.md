@@ -8,10 +8,10 @@ Install the pygame library using:
 pip install pygame
 ``` 
 
-Execute the main Python script to start the game:
+Run the main Python script to start:
 ```
 Python main.py
 ```
 Follow the on screen instructions to play the game.
 
-Alternatively, open the HTML file in a web browser to view a demo version of the game.
+Note: Levels 0, 1, and 2 are working and can be played. The other levels are still in development.
