@@ -13,5 +13,3 @@ Run the main Python script to start:
 Python main.py
 ```
 Follow the on screen instructions to play the game.
-
-Note: Levels 0, 1, and 2 are working and can be played. The other levels are still in development.
