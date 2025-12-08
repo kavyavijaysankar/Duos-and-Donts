@@ -13,7 +13,7 @@ C_BG = (15, 15, 20)          # Deep Dark Blue
 C_WALL = (100, 110, 130)     # Steel Walls
 C_P1 = (60, 150, 250)        # Player 1 (Blue)
 C_P2 = (100, 220, 100)       # Player 2 (Green)
-C_GUARD_DEFAULT = (220, 40, 40) # Standard Red Guard (Used for L1 Deactivators too)
+C_GUARD_DEFAULT = (220, 40, 40) # Standard Red Guard
 C_FIRE = (255, 69, 0)        # Orange Fire Base
 C_FIRE_INNER = (255, 200, 0) # Yellow Fire Inner
 C_GUARD_OFF = (60, 60, 60)   # Disabled Hazard
@@ -21,7 +21,7 @@ C_VISION = (255, 0, 0, 80)   # Transparent Red Cone
 C_KEY = (255, 215, 0)        # Key Gold
 C_CHEST = (160, 82, 45)      # Wood Brown
 C_CHEST_LID = (139, 69, 19)  # Darker Wood
-C_DEACTIVATOR_DEFAULT = (200, 100, 200) # Purple Switches (Default/Tutorial)
+C_DEACTIVATOR_DEFAULT = (200, 100, 200) # Purple Switches
 C_TEXT = (255, 255, 255)
 C_HUD_BG = (30, 30, 40)
 C_DYNAMIC_WALL = (165, 42, 42) 
@@ -229,7 +229,6 @@ class Guard:
 
     def draw(self, surface):
         if self.color == C_FIRE:
-            # Fire obstacle Visual
             if self.active:
                 flicker = (pygame.time.get_ticks() // 100) % 3
                 cx, cy = self.rect.centerx, self.rect.bottom
@@ -285,13 +284,11 @@ class Deactivator:
         self.is_pressed = self.rect.colliderect(player_rect)
 
     def draw(self, surface):
-        # Drawing logic adjusted to make fake and real ones look the same in Level 1 (using base_color)
         if self.is_pressed and not self.is_fake:
             color = (150, 255, 150) # Green when active
             frame_color = (50, 0, 50)
         else:
             color = self.base_color 
-            # Ensure frame color has enough contrast, especially if base_color is C_GUARD_DEFAULT
             if self.base_color == C_GUARD_DEFAULT:
                  frame_color = (150, 20, 20)
             else:
@@ -331,111 +328,135 @@ def get_levels():
 
     levels = []
 
-    # Tutorial (Level 0)
+    # --- LEVEL 0: TUTORIAL ---
     l0_walls = list(base_walls)
     l0_walls.append(offset_rect((150, 100, 20, 600)))
     l0_walls.append(offset_rect((450, 0, 20, 520)))
     
-    l0_guard1_path = [offset_point((300, 200)), offset_point((300, 200))] 
-    l0_guard2_path = [offset_point((300, 500)), offset_point((300, 500))] 
-    
     levels.append({
-        "name": "Tutorial",
+        "name": "Level 0: Tutorial",
         "briefing": [
             "Welcome to Duos & Don'ts.",
-            "Blue (WASD): Avoid the Red Obstacles.",
-            "Green (Arrows): Step on Matching Buttons to disable Obstacles.",
-            "Work together to get the Key to the Chest.",
+            "Blue (WASD): Learn navigation, key retrieval, and chest delivery.",
+            "Green (Arrows): No role in this level. Just observe and communicate.",
         ],
         "p1_start": offset_point((70, 620)), "p2_start": offset_point((655, 350)), 
         "key": offset_rect((300, 580, 40, 40)), "chest": offset_rect((550, 50, 40, 40)), 
         "walls": l0_walls,
-        "guards": [
-            {"x": l0_guard1_path[0][0], "y": l0_guard1_path[0][1], "path": l0_guard1_path, "angle": 90, "id": 1, "speed": 0, "fov": 40, "len": 250, "sweep_speed": 4.5, "color": C_GUARD_DEFAULT},
-            {"x": l0_guard2_path[0][0], "y": l0_guard2_path[0][1], "path": l0_guard2_path, "angle": 270, "id": 2, "speed": 0, "fov": 40, "len": 200, "sweep_speed": 4.5, "color": C_GUARD_DEFAULT}
-        ],
-        "deactivators": [
-            {"x": offset_point((1100, 600))[0], "y": offset_point((1100, 600))[1], "id": 2, "fake": False, "color": C_GUARD_DEFAULT}, 
-            {"x": offset_point((750, 100))[0], "y": offset_point((750, 100))[1], "id": 1, "fake": False, "color": C_GUARD_DEFAULT},  
-        ],
-        # INSTRUCTIONS DATA (P1 Guard Box included and positioned correctly)
+        "guards": [],
+        "deactivators": [],
         "instructions": [
-            # P1: Start
-            {"id": "p1_wasd", "lines": ["Use the WASD keys", "to navigate"], "rect": offset_rect((20, 360, 200, 60)), "start_active": True},
-            # P1: Appear after P1 move
-            {"id": "p1_guard", "lines": ["Stay clear", "of the guards"], "rect": offset_rect((340, 50, 200, 60)), "start_active": False},
-            {"id": "p1_key", "lines": ["Collect the key"], "rect": offset_rect((370, 550, 200, 40)), "start_active": False},
-            # P1: Appear after key
+            # P1: WASD - Fixed Y coordinate so it is visible
+            {"id": "p1_wasd", "lines": ["Use the WASD keys", "to navigate"], "rect": offset_rect((20, 450, 200, 60)), "start_active": True},
+            
+            # P1: Key - Starts active, disappears when key collected
+            {"id": "p1_key", "lines": ["Collect the key"], "rect": offset_rect((370, 550, 200, 40)), "start_active": True},
+            
+            # P1: Chest - Unchanged logic (appears after key)
             {"id": "p1_chest", "lines": ["Unlock the", "treasure chest"], "rect": offset_rect((350, 50, 200, 60)), "start_active": False},
             
-            # P2: Start
-            {"id": "p2_arrows", "lines": ["Deactivate the", "obstacles for Player 1"], "rect": offset_rect((800, 40, 250, 60)), "start_active": True},
-            {"id": "p2_deact", "lines": ["Use the Arrow keys", "to navigate"], "rect": offset_rect((650, 400, 200, 60)), "start_active": True},
+            # P2: Instructions
+            {"id": "p2_arrows", "lines": ["Use the Arrow keys", "to navigate"], "rect": offset_rect((800, 400, 200, 60)), "start_active": True},
+            {"id": "p2_no_role", "lines": ["You don't have", "any roles in this level"], "rect": offset_rect((850, 20, 300, 60)), "start_active": True},
         ],
         "dynamic_walls": [],
         "pressure_plates": [],
         "escape_pod_data": None
     })
 
-
-    # LEVEL 1
+    # --- LEVEL 1: THE BASICS ---
     l1_walls = list(base_walls)
-    l1_walls.extend([
+    l1_walls.append(offset_rect((150, 100, 20, 600)))
+    l1_walls.append(offset_rect((450, 0, 20, 520)))
+    
+    l1_guard1_path = [offset_point((300, 200)), offset_point((300, 200))] 
+    l1_guard2_path = [offset_point((300, 500)), offset_point((300, 500))] 
+    
+    levels.append({
+        "name": "Level 1: The Basics",
+        "briefing": [
+            "Blue (WASD): Avoid obstacles. P2 controls your path.",
+            "Green (Arrows): Step on Matching Buttons to disable Obstacles.",
+            "Communicate where the obstacles are and which button P2 needs.",
+        ],
+        "p1_start": offset_point((70, 620)), "p2_start": offset_point((655, 350)), 
+        "key": offset_rect((300, 580, 40, 40)), "chest": offset_rect((550, 50, 40, 40)), 
+        "walls": l1_walls,
+        "guards": [
+            # Top Guard (Guard 1)
+            {"x": l1_guard1_path[0][0], "y": l1_guard1_path[0][1], "path": l1_guard1_path, "angle": 90, "id": 1, "speed": 0, "fov": 40, "len": 250, "sweep_speed": 4.5, "color": C_GUARD_DEFAULT},
+            # Bottom Guard (Guard 2)
+            {"x": l1_guard2_path[0][0], "y": l1_guard2_path[0][1], "path": l1_guard2_path, "angle": 270, "id": 2, "speed": 0, "fov": 40, "len": 200, "sweep_speed": 4.5, "color": C_GUARD_DEFAULT}
+        ],
+        "deactivators": [
+            # Deactivator for Top Guard (ID 1) -> Located Top Right
+            {"x": offset_point((750, 100))[0], "y": offset_point((750, 100))[1], "id": 1, "fake": False, "color": C_GUARD_DEFAULT},  
+            # Deactivator for Bottom Guard (ID 2) -> Located Bottom Right
+            {"x": offset_point((1100, 600))[0], "y": offset_point((1100, 600))[1], "id": 2, "fake": False, "color": C_GUARD_DEFAULT}, 
+        ],
+        "instructions": [
+            # P1: Guard Instruction - Starts near the Top Guard (Guard 1)
+            {"id": "p1_guard", "lines": ["Stay clear", "of the guards"], "rect": offset_rect((340, 200, 200, 60)), "start_active": True},
+            
+            # P1: Key - Standard
+            {"id": "p1_key", "lines": ["Collect the key"], "rect": offset_rect((370, 550, 200, 40)), "start_active": False},
+            
+            # P2: Deactivator Instruction - Starts near the Top Deactivator (ID 1)
+            {"id": "p2_deact_move", "lines": ["Hover over the deactivator", "to disable the obstacles"], "rect": offset_rect((750, 150, 250, 60)), "start_active": True},
+        ],
+        "dynamic_walls": [],
+        "pressure_plates": [],
+        "escape_pod_data": None
+    })
+
+    # --- LEVEL 2: PATIENCE GRID ---
+    l2_walls = list(base_walls)
+    l2_walls.extend([
         offset_rect((0, 200, 400, 20)), offset_rect((200, 450, 430, 20)), offset_rect((100, 280, 20, 100)), offset_rect((500, 150, 20, 100)), 
         offset_rect((700, 150, 20, 400)), offset_rect((850, 280, 20, 400)), offset_rect((1000, 150, 20, 400)), 
         offset_rect((700, 450, 150, 20)), offset_rect((900, 450, 100, 20)), offset_rect((850, 280, 200, 20)), 
     ])
-    l1_p2_start = offset_point((750, 50)) 
-    l1_guard1_path = [offset_point((200, 300)), offset_point((550, 300))]
-    l1_guard2_path = [offset_point((400, 100)), offset_point((400, 300))]
-    l1_guard3_path = [offset_point((580, 580)), offset_point((580, 580))]
+    l2_p2_start = offset_point((750, 50)) 
+    l2_guard1_path = [offset_point((200, 300)), offset_point((550, 300))]
+    l2_guard2_path = [offset_point((400, 100)), offset_point((400, 300))]
+    l2_guard3_path = [offset_point((580, 580)), offset_point((580, 580))]
     
-    # fire obstacle removed for now.
-    # l1_fire_guard_loc = offset_point((100, 600))
-
     levels.append({
-        "name": "Level 1: The Patience Grid",
+        "name": "Level 2: The Patience Grid",
         "briefing": [
             "Player 1 must navigate fast-moving guards.",
             "Player 2 must find the correct colored switches.",
             "Communicate efficiently."
         ],
-        "p1_start": offset_point((50, 50)), "p2_start": l1_p2_start,
+        "p1_start": offset_point((50, 50)), "p2_start": l2_p2_start,
         "key": offset_rect((550, 610, 40, 40)), "chest": offset_rect((100, 50, 40, 40)), 
-        "walls": l1_walls,
+        "walls": l2_walls,
         "guards": [
-            {"x": l1_guard1_path[0][0], "y": l1_guard1_path[0][1], "path": l1_guard1_path, "angle": 0, "id": 1, "speed": 18, "fov": 45, "len": 100, "color": C_GUARD_DEFAULT},
-            {"x": l1_guard2_path[0][0], "y": l1_guard2_path[0][1], "path": l1_guard2_path, "angle": 90, "id": 2, "speed": 12, "fov": 45, "len": 150, "color": C_GUARD_DEFAULT},
-            {"x": l1_guard3_path[0][0], "y": l1_guard3_path[0][1], "path": l1_guard3_path, "angle": 225, "id": 3, "speed": 0, "fov": 70, "len": 200, "sweep_speed": 2.5, "color": C_GUARD_DEFAULT},
-            
-            # Fire obstacle removed for now.
-            # {"x": l1_fire_guard_loc[0], "y": l1_fire_guard_loc[1], "path": [], "angle": 90, "id": 7, "speed": 0, "fov": 360, "len": 80, "sweep_speed": 1, "color": C_FIRE}
+            {"x": l2_guard1_path[0][0], "y": l2_guard1_path[0][1], "path": l2_guard1_path, "angle": 0, "id": 1, "speed": 18, "fov": 45, "len": 100, "color": C_GUARD_DEFAULT},
+            {"x": l2_guard2_path[0][0], "y": l2_guard2_path[0][1], "path": l2_guard2_path, "angle": 90, "id": 2, "speed": 12, "fov": 45, "len": 150, "color": C_GUARD_DEFAULT},
+            {"x": l2_guard3_path[0][0], "y": l2_guard3_path[0][1], "path": l2_guard3_path, "angle": 225, "id": 3, "speed": 0, "fov": 70, "len": 200, "sweep_speed": 2.5, "color": C_GUARD_DEFAULT},
         ],
         "deactivators": [
             # real deactivators
             {"x": offset_point((750, 500))[0], "y": offset_point((750, 500))[1], "id": 1, "fake": False, "color": C_GUARD_DEFAULT}, 
             {"x": offset_point((790, 400))[0], "y": offset_point((790, 400))[1], "id": 2, "fake": False, "color": C_GUARD_DEFAULT}, 
             {"x": offset_point((900, 500))[0], "y": offset_point((900, 500))[1], "id": 3, "fake": False, "color": C_GUARD_DEFAULT},
-            # FIRE DEACTIVATOR
-            # {"x": offset_point((1100, 550))[0], "y": offset_point((1100, 550))[1], "id": 7, "fake": False, "color": C_FIRE},
-
             #Fake deactivators
             {"x": offset_point((1030, 320))[0], "y": offset_point((1030, 320))[1], "id": 4, "fake": True, "color": C_GUARD_DEFAULT}, 
             {"x": offset_point((900, 200))[0], "y": offset_point((900, 200))[1], "id": 4, "fake": True, "color": C_GUARD_DEFAULT},
             {"x": offset_point((1100, 150))[0], "y": offset_point((1100, 150))[1], "id": 5, "fake": True, "color": C_GUARD_DEFAULT},
         ],
         "instructions": [
-            {"id": "l1_p2_fake", "lines": ["There are 3 real ", "deactivators", "and 3 fake ones"], "rect": offset_rect((980, 30, 280, 72)), "start_active": True},
+            {"id": "l2_p2_fake", "lines": ["There are 3 real ", "deactivators", "and 3 fake ones"], "rect": offset_rect((980, 30, 280, 72)), "start_active": True},
         ],
         "dynamic_walls": [],
         "pressure_plates": [],
         "escape_pod_data": None
     })
 
-
-    # --- LEVEL 2 ---
-    l2_walls = list(base_walls)
-    l2_walls.extend([
+    # --- LEVEL 3 ---
+    l3_walls = list(base_walls)
+    l3_walls.extend([
         offset_rect((10, 300, 620, 20)), 
         offset_rect((10, 500, 620, 20)), 
         offset_rect((620, 300, 5, 220)) 
@@ -447,12 +468,12 @@ def get_levels():
         {"rect": offset_rect((580, 480, 50, 20)), "id": 11, "player": "p1"}, 
     ]
     
-    l2_guard1_path = [offset_point((300, 150)), offset_point((500, 150))] 
-    l2_guard2_path = [offset_point((400, 600)), offset_point((400, 600))]
-    l2_guard3_path = [offset_point((100, 600)), offset_point((100, 600))] 
+    l3_guard1_path = [offset_point((300, 150)), offset_point((500, 150))] 
+    l3_guard2_path = [offset_point((400, 600)), offset_point((400, 600))]
+    l3_guard3_path = [offset_point((100, 600)), offset_point((100, 600))] 
     
     levels.append({
-        "name": "Level 2: The Escape Pod",
+        "name": "Level 3: The patience grid part 2",
         "briefing": [
             "P1 must reach the Key, but will be trapped inside the Escape Pod.",
             "P1: Find the Pressure Plate to free P2.",
@@ -464,9 +485,9 @@ def get_levels():
         "chest": offset_rect((550, 400, 40, 40)), 
         "walls": l2_walls,
         "guards": [
-            {"x": l2_guard1_path[0][0], "y": l2_guard1_path[0][1], "path": l2_guard1_path, "angle": 0, "id": 1, "speed": 5, "fov": 45, "len": 120, "color": C_GUARD_DEFAULT}, 
-            {"x": l2_guard2_path[0][0], "y": l2_guard2_path[0][1], "path": [offset_point((400, 600))], "angle": 270, "id": 2, "speed": 0, "fov": 70, "len": 180, "sweep_speed": 1.5, "color": C_GUARD_DEFAULT}, 
-            {"x": l2_guard3_path[0][0], "y": l2_guard3_path[0][1], "path": [offset_point((100, 600))], "angle": 0, "id": 3, "speed": 0, "fov": 70, "len": 150, "sweep_speed": 2, "color": C_GUARD_DEFAULT}, 
+            {"x": l3_guard1_path[0][0], "y": l3_guard1_path[0][1], "path": l3_guard1_path, "angle": 0, "id": 1, "speed": 5, "fov": 45, "len": 120, "color": C_GUARD_DEFAULT}, 
+            {"x": l3_guard2_path[0][0], "y": l3_guard2_path[0][1], "path": [offset_point((400, 600))], "angle": 270, "id": 2, "speed": 0, "fov": 70, "len": 180, "sweep_speed": 1.5, "color": C_GUARD_DEFAULT}, 
+            {"x": l3_guard3_path[0][0], "y": l3_guard3_path[0][1], "path": [offset_point((100, 600))], "angle": 0, "id": 3, "speed": 0, "fov": 70, "len": 150, "sweep_speed": 2, "color": C_GUARD_DEFAULT}, 
         ],
         "deactivators": [
             {"x": offset_point((700, 600))[0], "y": offset_point((700, 600))[1], "id": 1, "fake": False, "color": C_DEACTIVATOR_DEFAULT},
@@ -488,9 +509,9 @@ def get_levels():
         }
     })
 
-    # --- LEVEL 3 (Dummy Level) ---
+    # --- LEVEL 4 (Dummy) ---
     levels.append({
-        "name": "Level 3: Under Construction",
+        "name": "Level 4: Under Construction",
         "briefing": [
             "This level is currently under development.",
             "Check back later for new challenges!"
@@ -599,70 +620,58 @@ class Game:
             pass
 
         elif self.state == "BRIEFING":
-            if keys[pygame.K_RETURN]: 
-                self.state = "PLAYING"
-                self.start_ticks = pygame.time.get_ticks()
+            # Input now handled in Event Loop to prevent skipping
+            pass
 
         elif self.state == "PLAYING":
             self.p1.update(keys, self.walls, self.dynamic_walls, self.escape_pod)
             self.p2.update(keys, self.walls, self.dynamic_walls)
 
-            # --- TUTORIAL LOGIC UPDATE ---
+            # --- TUTORIAL/LEVEL 1 LOGIC UPDATE ---
             if self.current_level_idx == 0:
-                p1_rect = self.p1.rect
+                # Level 0: Key Instruction removed when key collected
+                p1_key_instr = next((i for i in self.tutorial_instructions if i.id == "p1_key"), None)
+                if p1_key_instr and self.p1_has_key:
+                    p1_key_instr.completed = True
+
+            elif self.current_level_idx == 1:
+                # P1 starts bottom left, moves Up, passes wall (x>170), moves Down past guard 2.
                 
-                center_lane_min_x = offset_point((150, 0))[0] 
-                center_lane_max_x = offset_point((450, 0))[0]
-                # Y barrier for crossing the first obstacle (approx 300 game coords)
-                y_barrier = offset_point((0, 300))[1]
+                # Check for "Crossing the first obstacle" (Passing the vertical wall to the right)
+                PASSED_OBSTACLE_1 = self.p1.rect.x > 170
 
-                for instr in self.tutorial_instructions:
-                    if not instr.active or instr.completed: continue
-                    
-                    # Logic for each ID
-                    if instr.id == "p1_wasd":
-                        # Disappear if P1 moves/touches it
-                        if p1_rect.colliderect(instr.rect):
-                            instr.completed = True
-                            # Activate next P1 steps (guards and key appear same time)
-                            for next_i in self.tutorial_instructions:
-                                if next_i.id in ["p1_guard", "p1_key"]: next_i.active = True
-                    
-                    elif instr.id == "p1_guard":
-                        # Disappear when P1's top edge is above the y=300 game coord AND P1 is in the center lane
-                        if p1_rect.top < y_barrier and \
-                           p1_rect.right > center_lane_min_x and \
-                           p1_rect.left < center_lane_max_x:
-                            instr.completed = True
-                    
-                    elif instr.id == "p1_key":
-                        # Disappear if key collected
-                        if self.p1_has_key:
-                            instr.completed = True
-                            # Activate Chest instruction
-                            for next_i in self.tutorial_instructions:
-                                if next_i.id == "p1_chest": next_i.active = True
-                    
-                    elif instr.id == "p1_chest":
-                        # Disappears on Level Complete (handled by Victory state)
-                        pass
+                # Check for "Crossing the second obstacle" (Being in the right lane and passing bottom guard)
+                PASSED_OBSTACLE_2 = self.p1.rect.x > 170 and self.p1.rect.y > 520
 
-                    elif instr.id == "p2_arrows":
-                        # Disappear if P2 reaches first deactivator (Bottom D2)
-                        # We find Deactivator 2 rect
-                        d2 = next((d for d in self.deactivators if d.link_id == 2), None)
-                        if d2 and self.p2.rect.colliderect(d2.rect):
-                            instr.completed = True
-                    
-                    elif instr.id == "p2_deact":
-                        # Disappear if P2 deactivates second obstacle (Top D1)
-                        d1 = next((d for d in self.deactivators if d.link_id == 1), None)
-                        if d1 and d1.is_pressed:
-                            instr.completed = True
+                p1_guard_instr = next((i for i in self.tutorial_instructions if i.id == "p1_guard"), None)
+                p2_deact_instr = next((i for i in self.tutorial_instructions if i.id == "p2_deact_move"), None)
+                
+                if p1_guard_instr and p2_deact_instr:
+                    if not PASSED_OBSTACLE_1:
+                        # STATE 1: At the start (Left lane or top crossing area)
+                        # Show hints for Top Obstacle
+                        p1_guard_instr.active = True
+                        p1_guard_instr.rect.center = (340, 200 + HUD_OFFSET) # Top Guard
+                        p2_deact_instr.active = True
+                        p2_deact_instr.rect.center = (750, 150 + HUD_OFFSET) # Top Deactivator
 
+                    elif PASSED_OBSTACLE_1 and not PASSED_OBSTACLE_2:
+                        # STATE 2: Passed first, approaching second
+                        # Show hints for Bottom Obstacle
+                        p1_guard_instr.active = True
+                        p1_guard_instr.rect.center = (340, 500 + HUD_OFFSET) # Bottom Guard
+                        p2_deact_instr.active = True
+                        p2_deact_instr.rect.center = (1100, 600 + HUD_OFFSET) # Bottom Deactivator
+
+                    else:
+                        # STATE 3: Passed everything
+                        p1_guard_instr.active = False
+                        p2_deact_instr.active = False
 
             active_links = {}
             for d in self.deactivators:
+                if self.current_level_idx == 0: continue
+                
                 if d.link_id == 10 and d.rect.colliderect(self.p1.rect): d.is_pressed = True
                 elif d.link_id != 10: d.update(self.p2.rect)
                 if d.is_pressed and not d.is_fake: active_links[d.link_id] = True
@@ -684,16 +693,14 @@ class Game:
             for g in self.guards:
                 g.active = not active_links.get(g.link_id, False)
                 g.update()
+                
+                # --- COLLISION / RESPAWN LOGIC ---
                 if g.check_collision(self.p1.rect):
-                    
-                    # reset instruction box 1 if collision occurs
-                    if self.current_level_idx == 0:
-                        for instr in self.tutorial_instructions:
-                            if instr.id == "p1_guard" and instr.completed:
-                                instr.completed = False
-                                break # Found the instruction, break inner loop
-
                     self.p1.reset() 
+                    # Note: Since P1 resets to Start X, Y:
+                    # PASSED_OBSTACLE_1 becomes False immediately.
+                    # The logic above automatically resets instructions to State 1.
+                    
                     if self.p1_has_key:
                         self.p1_has_key = False
                         self.key_rect = pygame.Rect(self.key_data)
@@ -706,6 +713,11 @@ class Game:
             
             if not self.p1_has_key and self.p1.rect.colliderect(self.key_rect):
                 self.p1_has_key = True
+                
+                # Activate P1 Chest Instruction (L0/L1) - though L1 chest instr removed
+                p1_chest_instr = next((i for i in self.tutorial_instructions if i.id == "p1_chest"), None)
+                if p1_chest_instr: p1_chest_instr.active = True
+
                 if self.current_level_idx == 2: self.p1.is_trapped = True 
                 self.key_rect.topleft = (-100, -100) 
 
@@ -724,7 +736,9 @@ class Game:
                 self.state = "VICTORY"
 
         elif self.state == "VICTORY":
-            if keys[pygame.K_r]: self.load_level(self.current_level_idx + 1)
+            # Input now handled in Event Loop to prevent skipping
+            # R for Replay level
+            if keys[pygame.K_r]: self.restart_level()
                 
         elif self.state == "CAMPAIGN_COMPLETE":
             if keys[pygame.K_r]: self.restart_game()
@@ -766,13 +780,19 @@ class Game:
             status_surf = font_ui.render(key_status_text, True, key_status_color)
             screen.blit(status_surf, (SCREEN_WIDTH - status_surf.get_width() - 20, 15))
             screen.blit(font_ui.render(self.level_name, True, C_KEY), (20, 10))
+            
+            # Playing UI Hint
+            if self.state == "PLAYING":
+                restart_text = font_small.render("Press 'R' to Restart Level", True, (100, 100, 120))
+                screen.blit(restart_text, (SCREEN_WIDTH // 2 - restart_text.get_width() // 2, 15))
 
             if self.state == "VICTORY":
                 overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
                 overlay.fill((0,0,0,150))
                 screen.blit(overlay, (0,0))
                 draw_centered_text(screen, "LEVEL CLEARED - PROTOCOL SYNCED", -30, font_title, C_KEY)
-                draw_centered_text(screen, "Press 'R' for Next Level", 30, font_ui)
+                draw_centered_text(screen, "Press 'ENTER' for Next Level", 30, font_ui)
+                draw_centered_text(screen, "Press 'R' to Replay Level", 70, font_small)
 
         elif self.state == "CAMPAIGN_COMPLETE":
             draw_centered_text(screen, "PROTOCOL COMPLETE: SUCCESSFUL SYNC", -50, font_title, C_KEY)
@@ -828,17 +848,20 @@ if __name__ == '__main__':
                 if event.type == pygame.KEYDOWN:
                     mods = pygame.key.get_mods()
                     if mods & pygame.KMOD_SHIFT:
-                        if event.key == pygame.K_1: game.load_level(0) # Tutorial
-                        elif event.key == pygame.K_2: game.load_level(1) # Level 1
-                        elif event.key == pygame.K_3: game.load_level(2) # Level 2
-                        elif event.key == pygame.K_4: game.load_level(3) # Level 3
+                        if event.key == pygame.K_0: game.load_level(0) # Tutorial
+                        elif event.key == pygame.K_1: game.load_level(1) # Level 1
+                        elif event.key == pygame.K_2: game.load_level(2) # Level 2
+                        elif event.key == pygame.K_3: game.load_level(3) # Level 3
                     
                     if event.key == pygame.K_r: 
                         if game.state == "PLAYING": game.restart_level()
-                        elif game.state == "VICTORY": game.load_level(game.current_level_idx + 1)
+                        elif game.state == "VICTORY": game.restart_level()
                         elif game.state == "CAMPAIGN_COMPLETE": game.restart_game()
-                    if event.key == pygame.K_RETURN and game.state == "BRIEFING":
-                        game.state = "PLAYING"; game.start_ticks = pygame.time.get_ticks()
+                    if event.key == pygame.K_RETURN:
+                         if game.state == "BRIEFING":
+                            game.state = "PLAYING"; game.start_ticks = pygame.time.get_ticks()
+                         elif game.state == "VICTORY":
+                            game.load_level(game.current_level_idx + 1)
             
             game.update()
             game.draw()
