@@ -419,8 +419,8 @@ def get_levels():
             "p2_hint_bottom": P2_HINT_BOTTOM,
         }
     })
+    
 # Level 2: patience
-
     l2_walls = list(base_walls)
     l2_walls.extend([
         offset_rect((0, 200, 400, 20)), offset_rect((200, 450, 430, 20)), offset_rect((100, 280, 20, 100)), offset_rect((500, 150, 20, 100)), 
@@ -767,7 +767,7 @@ class Game:
                 p1_chest_instr = next((i for i in self.tutorial_instructions if i.id == "p1_chest"), None)
                 if p1_chest_instr: p1_chest_instr.active = True
 
-                if self.current_level_idx == 2: self.p1.is_trapped = True 
+                if self.current_level_idx == 3: self.p1.is_trapped = True 
                 self.key_rect.topleft = (-100, -100) 
 
             if self.current_level_idx == 2 and self.escape_pod:
