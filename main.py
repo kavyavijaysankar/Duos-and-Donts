@@ -465,64 +465,9 @@ def get_levels():
         "escape_pod_data": None
     })
 
-    # LEVEL 3 - STILL BEING DEVELOPED, VERY BUGGY AND VISUALS ARE BAD
-    l3_walls = list(base_walls)
-    l3_walls.extend([
-        offset_rect((10, 300, 620, 20)), 
-        offset_rect((10, 500, 620, 20)), 
-        offset_rect((620, 300, 5, 220)) 
-    ])
-
-    dynamic_walls = [
-        {"rect": offset_rect((900, 50, 20, 250)), "id": 10, "player": "p2"},
-        {"rect": offset_rect((580, 320, 50, 20)), "id": 11, "player": "p1"}, 
-        {"rect": offset_rect((580, 480, 50, 20)), "id": 11, "player": "p1"}, 
-    ]
-    
-    l3_guard1_path = [offset_point((300, 150)), offset_point((500, 150))] 
-    l3_guard2_path = [offset_point((400, 600)), offset_point((400, 600))]
-    l3_guard3_path = [offset_point((100, 600)), offset_point((100, 600))] 
-    
+    # Level 3 (Dummy) - ALSO UNDER DEVELOPMENT. NO VISUALS YET
     levels.append({
-        "name": "Level 3: The patience grid part 2",
-        "briefing": [
-            "P1 must reach the Key, but will be trapped inside the Escape Pod.",
-            "P1: Find the Pressure Plate to free P2.",
-            "P2: Use Sync Zones to move the pod. Left Zone = Pod Right. Right Zone = Pod Left.",
-        ],
-        "p1_start": offset_point((50, 640)),
-        "p2_start": offset_point((1200, 50)),
-        "key": offset_rect((50, 400, 40, 40)), 
-        "chest": offset_rect((550, 400, 40, 40)), 
-        "walls": l2_walls,
-        "guards": [
-            {"x": l3_guard1_path[0][0], "y": l3_guard1_path[0][1], "path": l3_guard1_path, "angle": 0, "id": 1, "speed": 5, "fov": 45, "len": 120, "color": C_GUARD_DEFAULT}, 
-            {"x": l3_guard2_path[0][0], "y": l3_guard2_path[0][1], "path": [offset_point((400, 600))], "angle": 270, "id": 2, "speed": 0, "fov": 70, "len": 180, "sweep_speed": 1.5, "color": C_GUARD_DEFAULT}, 
-            {"x": l3_guard3_path[0][0], "y": l3_guard3_path[0][1], "path": [offset_point((100, 600))], "angle": 0, "id": 3, "speed": 0, "fov": 70, "len": 150, "sweep_speed": 2, "color": C_GUARD_DEFAULT}, 
-        ],
-        "deactivators": [
-            {"x": offset_point((700, 600))[0], "y": offset_point((700, 600))[1], "id": 1, "fake": False, "color": C_DEACTIVATOR_DEFAULT},
-            {"x": offset_point((1000, 600))[0], "y": offset_point((1000, 600))[1], "id": 2, "fake": False, "color": C_DEACTIVATOR_DEFAULT},
-            {"x": offset_point((1200, 600))[0], "y": offset_point((1200, 600))[1], "id": 3, "fake": False, "color": C_DEACTIVATOR_DEFAULT},
-            {"x": offset_point((50, 100))[0], "y": offset_point((50, 100))[1], "id": 10, "fake": False, "color": C_PRESSURE_PLATE}, # PP1
-            {"x": offset_point((1100, 100))[0], "y": offset_point((1100, 100))[1], "id": 14, "fake": True, "color": C_DEACTIVATOR_DEFAULT},
-        ],
-        "dynamic_walls": dynamic_walls,
-        "pressure_plates": [ 
-            {"x": offset_point((750, 300))[0], "y": offset_point((750, 300))[1], "id": 12}, 
-            {"x": offset_point((1150, 300))[0], "y": offset_point((1150, 300))[1], "id": 13} 
-        ],
-        "escape_pod_data": {
-            "initial_rect": offset_rect((0, 320, 100, 180)),
-            "track_x_min": 10,  
-            "track_x_max": 530, 
-            "speed": 3 
-        }
-    })
-
-    # Level 4 (Dummy) - ALSO UNDER DEVELOPMENT. NO VISUALS YET
-    levels.append({
-        "name": "Level 4: Under Construction",
+        "name": "Level 3: Under Construction",
         "briefing": [
             "This level is currently under development.",
             "Check back later for new challenges!"
