@@ -24,8 +24,6 @@ C_CHEST_LID = (139, 69, 19)
 C_DEACTIVATOR_DEFAULT = (200, 100, 200) 
 C_TEXT = (255, 255, 255)
 C_HUD_BG = (30, 30, 40)
-C_DYNAMIC_WALL = (165, 42, 42) 
-C_PRESSURE_PLATE = (255, 165, 0) 
 C_BUTTON_HOVER = (50, 50, 70)
 C_BUTTON_IDLE = (40, 40, 50)
 C_TUTORIAL_BOX = (50, 50, 60, 200) 
@@ -106,7 +104,6 @@ class TutorialInstruction:
             surface.blit(text_surf, text_rect)
             y_offset += 20
 
-
 class Player:
     def __init__(self, x, y, color, controls, player_id):
         self.rect = pygame.Rect(x, y, 32, 32)
@@ -119,7 +116,7 @@ class Player:
         self.prev_y = y
         self.is_trapped = False 
 
-    def update(self, keys, walls, dynamic_walls_state):
+    def update(self, keys, walls):
         dx, dy = 0, 0
         
         if self.is_trapped and self.player_id == "p1":
@@ -133,10 +130,8 @@ class Player:
         self.prev_x = self.rect.x
         self.prev_y = self.rect.y
 
-        current_collidable_walls = walls + [
-            dw['wall'].rect for dw in dynamic_walls_state.values() 
-            if not dw['is_open'] and dw['player'].player_id == self.player_id
-        ]
+        # Only check against static walls now
+        current_collidable_walls = walls 
         
         self.rect.x += dx
         if self.rect.collidelist(current_collidable_walls) != -1:
@@ -283,21 +278,6 @@ class Deactivator:
         if self.is_pressed:
              pygame.draw.circle(surface, (255, 255, 255), self.rect.center, 5)
 
-class SyncZone: 
-    def __init__(self, x, y, link_id):
-        self.rect = pygame.Rect(x, y, 50, 50)
-        self.link_id = link_id
-        self.is_active = False 
-
-    def update(self, player, is_player_moving):
-        is_colliding = self.rect.colliderect(player.rect)
-        self.is_active = is_colliding and is_player_moving 
-
-    def draw(self, surface):
-        color = (255, 200, 0) if self.is_active else C_PRESSURE_PLATE
-        pygame.draw.rect(surface, color, self.rect, border_radius=12)
-        pygame.draw.rect(surface, (100, 50, 0), self.rect.inflate(-10, -10), border_radius=8)
-
 # Level defs
 
 def get_levels():
@@ -339,8 +319,6 @@ def get_levels():
             {"id": "p2_arrows", "lines": ["Use the Arrow", "keys to navigate"], "rect": offset_rect((1060, 80, 200, 60)), "start_active": True},
             {"id": "p2_no_role", "lines": ["You don't have any", " roles in this level"], "rect": offset_rect((850, 320, 240, 60)), "start_active": True},
         ],
-        "dynamic_walls": [],
-        "pressure_plates": [],
     })
 
     # Level 1: with obstacles
@@ -389,8 +367,6 @@ def get_levels():
             # P2 instructions
             {"id": "p2_deact_move", "lines": ["Hover over the deactivator", "to disable the obstacles"], "rect": offset_rect(P2_HINT_TOP + (300, 60)), "start_active": True},
         ],
-        "dynamic_walls": [],
-        "pressure_plates": [],
         # instruction logic
         "custom_data": {
             "p1_zone_yellow_rect": P1_ZONE_YELLOW_RECT_DATA,
@@ -442,8 +418,6 @@ def get_levels():
         "instructions": [
             {"id": "l2_p2_fake", "lines": ["There are 3 real ", "deactivators", "and 3 fake ones"], "rect": offset_rect((1050, 30, 210, 72)), "start_active": True},
         ],
-        "dynamic_walls": [],
-        "pressure_plates": [],
     })
 
     # Level 3 (Dummy) - UNDER DEVELOPMENT. NO VISUALS YET
@@ -457,10 +431,7 @@ def get_levels():
         "key": offset_rect((600, 300, 40, 40)), "chest": offset_rect((600, 400, 40, 40)), 
         "walls": list(base_walls),
         "guards": [],
-        "deactivators": [],
-        "dynamic_walls": [],
-        "pressure_plates": [],
-        "escape_pod_data": None
+        "deactivators": []
     })
 
     return levels
@@ -496,10 +467,7 @@ class Game:
         self.walls = [pygame.Rect(w) for w in data["walls"]]
         
         p1_controls = {'up': pygame.K_w, 'down': pygame.K_s, 'left': pygame.K_a, 'right': pygame.K_d}
-        # Level 0 logic change to P1 start:
-        if idx == 0:
-             p1_controls = {'up': pygame.K_w, 'down': pygame.K_s, 'left': pygame.K_a, 'right': pygame.K_d}
-
+        
         self.p1 = Player(data["p1_start"][0], data["p1_start"][1], C_P1, p1_controls, "p1")
         self.p2 = Player(data["p2_start"][0], data["p2_start"][1], C_P2, {'up': pygame.K_UP, 'down': pygame.K_DOWN, 'left': pygame.K_LEFT, 'right': pygame.K_RIGHT}, "p2")
         self.key_data = data["key"] 
@@ -515,19 +483,6 @@ class Game:
         for d_data in data["deactivators"]:
             self.deactivators.append(Deactivator(d_data["x"], d_data["y"], d_data["id"], d_data.get("fake", False), d_data.get("color", C_DEACTIVATOR_DEFAULT)))
 
-        self.sync_zones = []
-        for sz_data in data.get("pressure_plates", []):
-            self.sync_zones.append(SyncZone(sz_data["x"], sz_data["y"], sz_data["id"]))
-
-        self.dynamic_walls = {}
-        for i, dw_data in enumerate(data.get("dynamic_walls", [])):
-            player_obj = self.p1 if dw_data["player"] == "p1" else self.p2
-            dw = DynamicWall(dw_data["rect"], dw_data["id"], player_obj)
-            if self.current_level_idx == 2: 
-                if dw.link_id == 10: dw.is_open = False 
-                elif dw.link_id == 11: dw.is_open = True 
-            self.dynamic_walls[i + 1] = {'wall': dw, 'is_open': dw.is_open, 'player': player_obj} 
-        
         self.p1_zone_yellow = None
         self.p1_zone_pink = None
         
@@ -577,8 +532,8 @@ class Game:
             pass
 
         elif self.state == "PLAYING":
-            self.p1.update(keys, self.walls, self.dynamic_walls)
-            self.p2.update(keys, self.walls, self.dynamic_walls)
+            self.p1.update(keys, self.walls)
+            self.p2.update(keys, self.walls)
 
             # instruction logic for level 1
             if self.current_level_idx == 1:
@@ -636,23 +591,8 @@ class Game:
             for d in self.deactivators:
                 if self.current_level_idx == 0: continue
                 
-                if d.link_id == 10 and d.rect.colliderect(self.p1.rect): d.is_pressed = True
-                elif d.link_id != 10: d.update(self.p2.rect)
+                if d.link_id != 10: d.update(self.p2.rect)
                 if d.is_pressed and not d.is_fake: active_links[d.link_id] = True
-            
-            for sz in self.sync_zones:
-                sz.update(self.p2, self.p2.is_moving())
-                if sz.is_active: active_links[sz.link_id] = True
-
-            for dw_data in self.dynamic_walls.values():
-                link_id = dw_data['wall'].link_id
-                if link_id == 10:
-                    dw_data['is_open'] = active_links.get(10, False)
-                    dw_data['wall'].is_open = active_links.get(10, False)
-                elif link_id == 11:
-                    if self.p1.is_trapped:
-                         dw_data['is_open'] = False
-                         dw_data['wall'].is_open = False
             
             for g in self.guards:
                 g.active = not active_links.get(g.link_id, False)
@@ -670,11 +610,6 @@ class Game:
                     if self.p1_has_key:
                         self.p1_has_key = False
                         self.key_rect = pygame.Rect(self.key_data)
-                        if self.current_level_idx == 2:
-                            for dw_data in self.dynamic_walls.values():
-                                if dw_data['wall'].link_id == 11:
-                                    dw_data['is_open'] = True
-                                    dw_data['wall'].is_open = True
                         self.p1.is_trapped = False
             
             if not self.p1_has_key and self.p1.rect.colliderect(self.key_rect):
@@ -706,9 +641,7 @@ class Game:
 
         elif self.state in ("PLAYING", "VICTORY"):
             for wall in self.walls: pygame.draw.rect(screen, C_WALL, wall)
-            for dw_data in self.dynamic_walls.values(): dw_data['wall'].draw(screen)
             for d in self.deactivators: d.draw(screen)
-            for sz in self.sync_zones: sz.draw(screen)
             
             if not self.p1_has_key:
                 draw_visual_key(screen, self.key_rect)
@@ -758,10 +691,11 @@ class Game:
             pygame.draw.rect(screen, C_TEXT, btn["rect"], 2, border_radius=10)
             text_surf = font_ui.render(btn["text"], True, C_TEXT)
             screen.blit(text_surf, text_surf.get_rect(center=btn["rect"].center))
-            
+    
         nav_text = "For easy navigation click SHIFT + [Level number]"
         nav_surf = font_small.render(nav_text, True, (150, 150, 150))
         screen.blit(nav_surf, nav_surf.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT - 50)))
+
 
     def draw_briefing_screen(self):
         screen.fill(C_HUD_BG)
@@ -786,12 +720,6 @@ if __name__ == '__main__':
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: running = False
                 
-                # --- M Key for Main Menu ---
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
-                    game.state = "MAIN_MENU"
-
-                if event.type == pygame.MOUSEBUTTONDOWN and game.state == "MAIN_MENU":
-                    game.handle_menu_click(event.pos)
                 if event.type == pygame.KEYDOWN:
                     mods = pygame.key.get_mods()
                     if mods & pygame.KMOD_SHIFT:
@@ -799,7 +727,14 @@ if __name__ == '__main__':
                         elif event.key == pygame.K_1: game.load_level(1) 
                         elif event.key == pygame.K_2: game.load_level(2)
                         elif event.key == pygame.K_3: game.load_level(3)
-                    
+
+                # --- M Key for Main Menu ---
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
+                    game.state = "MAIN_MENU" 
+
+                if event.type == pygame.MOUSEBUTTONDOWN and game.state == "MAIN_MENU":
+                    game.handle_menu_click(event.pos)
+                if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_r: 
                         if game.state == "PLAYING": game.restart_level()
                         elif game.state == "VICTORY": game.restart_level()
