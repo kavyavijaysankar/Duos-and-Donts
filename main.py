@@ -106,19 +106,6 @@ class TutorialInstruction:
             surface.blit(text_surf, text_rect)
             y_offset += 20
 
-class DynamicWall:
-    def __init__(self, rect_data, link_id, player_owner):
-        self.rect = pygame.Rect(rect_data)
-        self.link_id = link_id
-        self.is_open = False
-        self.player_owner = player_owner 
-
-    def draw(self, surface):
-        if not self.is_open:
-            pygame.draw.rect(surface, C_DYNAMIC_WALL, self.rect, border_radius=2)
-            line_color = (255, 255, 255) 
-            pygame.draw.line(surface, line_color, self.rect.topleft, self.rect.bottomright, 3)
-            pygame.draw.line(surface, line_color, self.rect.topright, self.rect.bottomleft, 3)
 
 class Player:
     def __init__(self, x, y, color, controls, player_id):
