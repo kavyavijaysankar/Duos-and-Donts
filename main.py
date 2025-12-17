@@ -26,7 +26,6 @@ C_TEXT = (255, 255, 255)
 C_HUD_BG = (30, 30, 40)
 C_DYNAMIC_WALL = (165, 42, 42) 
 C_PRESSURE_PLATE = (255, 165, 0) 
-C_ESCAPE_POD = (100, 100, 120) 
 C_BUTTON_HOVER = (50, 50, 70)
 C_BUTTON_IDLE = (40, 40, 50)
 C_TUTORIAL_BOX = (50, 50, 60, 200) 
@@ -133,7 +132,7 @@ class Player:
         self.prev_y = y
         self.is_trapped = False 
 
-    def update(self, keys, walls, dynamic_walls_state, escape_pod=None):
+    def update(self, keys, walls, dynamic_walls_state):
         dx, dy = 0, 0
         
         if self.is_trapped and self.player_id == "p1":
@@ -166,8 +165,6 @@ class Player:
         if self.player_id == "p1":
             if self.rect.right > 635:
                 self.rect.right = 635 
-            if self.is_trapped and escape_pod:
-                self.rect.clamp_ip(escape_pod.inflate(-8, -8))
         elif self.player_id == "p2":
             if self.rect.left < 645:
                 self.rect.left = 645
@@ -357,7 +354,6 @@ def get_levels():
         ],
         "dynamic_walls": [],
         "pressure_plates": [],
-        "escape_pod_data": None
     })
 
     # Level 1: with obstacles
@@ -408,7 +404,6 @@ def get_levels():
         ],
         "dynamic_walls": [],
         "pressure_plates": [],
-        "escape_pod_data": None,
         # instruction logic
         "custom_data": {
             "p1_zone_yellow_rect": P1_ZONE_YELLOW_RECT_DATA,
@@ -462,10 +457,9 @@ def get_levels():
         ],
         "dynamic_walls": [],
         "pressure_plates": [],
-        "escape_pod_data": None
     })
 
-    # Level 3 (Dummy) - ALSO UNDER DEVELOPMENT. NO VISUALS YET
+    # Level 3 (Dummy) - UNDER DEVELOPMENT. NO VISUALS YET
     levels.append({
         "name": "Level 3: Under Construction",
         "briefing": [
@@ -495,8 +489,7 @@ class Game:
             {"text": "Tutorial", "level_idx": 0, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 270, 200, 50)},
             {"text": "Level 1", "level_idx": 1, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 340, 200, 50)},
             {"text": "Level 2", "level_idx": 2, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 410, 200, 50)},
-            {"text": "Level 3", "level_idx": 3, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 480, 200, 50)},
-            {"text": "Level 4", "level_idx": 4, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 550, 200, 50)},
+            {"text": "Level 3", "level_idx": 3, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 480, 200, 50)}
         ]
         
         self.p1_passed_obs1 = False
@@ -548,14 +541,6 @@ class Game:
                 elif dw.link_id == 11: dw.is_open = True 
             self.dynamic_walls[i + 1] = {'wall': dw, 'is_open': dw.is_open, 'player': player_obj} 
         
-        self.escape_pod = None
-        if data.get("escape_pod_data"):
-            pod_data = data["escape_pod_data"]
-            self.escape_pod = pygame.Rect(pod_data["initial_rect"])
-            self.pod_speed = pod_data["speed"]
-            self.pod_x_min = pod_data["track_x_min"]
-            self.pod_x_max = pod_data["track_x_max"]
-            
         self.p1_zone_yellow = None
         self.p1_zone_pink = None
         
@@ -605,7 +590,7 @@ class Game:
             pass
 
         elif self.state == "PLAYING":
-            self.p1.update(keys, self.walls, self.dynamic_walls, self.escape_pod)
+            self.p1.update(keys, self.walls, self.dynamic_walls)
             self.p2.update(keys, self.walls, self.dynamic_walls)
 
             # instruction logic for level 1
@@ -711,21 +696,8 @@ class Game:
                 # Activate P1 Chest Instruction (L0/L1)
                 p1_chest_instr = next((i for i in self.tutorial_instructions if i.id == "p1_chest"), None)
                 if p1_chest_instr: p1_chest_instr.active = True
-
-                if self.current_level_idx == 3: self.p1.is_trapped = True 
                 self.key_rect.topleft = (-100, -100) 
 
-            if self.current_level_idx == 2 and self.escape_pod:
-                dx = 0
-                sz12_active = active_links.get(12, False) 
-                sz13_active = active_links.get(13, False) 
-                if self.p1.is_trapped:
-                    if sz12_active and not sz13_active: dx = self.pod_speed 
-                    elif sz13_active and not sz12_active: dx = -self.pod_speed 
-                    self.escape_pod.x += dx
-                    self.escape_pod.x = max(self.pod_x_min, min(self.escape_pod.x, self.pod_x_max))
-                    self.p1.rect.x += dx
-                    
             if self.p1_has_key and self.p1.rect.colliderect(self.chest_rect):
                 self.state = "VICTORY"
 
@@ -747,9 +719,6 @@ class Game:
 
         elif self.state in ("PLAYING", "VICTORY"):
             for wall in self.walls: pygame.draw.rect(screen, C_WALL, wall)
-            if self.escape_pod:
-                pygame.draw.rect(screen, C_ESCAPE_POD, self.escape_pod, border_radius=4)
-                pygame.draw.rect(screen, C_ESCAPE_POD, self.escape_pod, 3, border_radius=4) 
             for dw_data in self.dynamic_walls.values(): dw_data['wall'].draw(screen)
             for d in self.deactivators: d.draw(screen)
             for sz in self.sync_zones: sz.draw(screen)
@@ -803,7 +772,7 @@ class Game:
             text_surf = font_ui.render(btn["text"], True, C_TEXT)
             screen.blit(text_surf, text_surf.get_rect(center=btn["rect"].center))
             
-        nav_text = "For easy navigation click SHIFT+[Level number]"
+        nav_text = "For easy navigation click SHIFT + [Level number]"
         nav_surf = font_small.render(nav_text, True, (150, 150, 150))
         screen.blit(nav_surf, nav_surf.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT - 50)))
 
@@ -841,8 +810,8 @@ if __name__ == '__main__':
                     if mods & pygame.KMOD_SHIFT:
                         if event.key == pygame.K_0: game.load_level(0) 
                         elif event.key == pygame.K_1: game.load_level(1) 
-                        elif event.key == pygame.K_2: game.load_level(2) 
-                        elif event.key == pygame.K_3: game.load_level(3) 
+                        elif event.key == pygame.K_2: game.load_level(2)
+                        elif event.key == pygame.K_3: game.load_level(3)
                     
                     if event.key == pygame.K_r: 
                         if game.state == "PLAYING": game.restart_level()
