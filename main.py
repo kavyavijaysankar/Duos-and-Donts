@@ -338,7 +338,7 @@ def get_levels():
     P2_HINT_BOTTOM = (920, 620)   # P2 Hint position near Bottom Deactivator
     
     levels.append({
-        "name": "Level 1: The Basics",
+        "name": "Level 1",
         "briefing": [
             "Blue (WASD): Avoid obstacles. P2 controls your path.",
             "Green (Arrows): Step on Matching Buttons to disable Obstacles.",
@@ -378,7 +378,7 @@ def get_levels():
         }
     })
     
-# Level 2: patience
+# Level 2
     l2_walls = list(base_walls)
     l2_walls.extend([
         offset_rect((0, 200, 400, 20)), offset_rect((200, 450, 430, 20)), offset_rect((100, 280, 20, 100)), offset_rect((500, 150, 20, 100)), 
@@ -391,7 +391,7 @@ def get_levels():
     l2_guard3_path = [offset_point((580, 580)), offset_point((580, 580))]
     
     levels.append({
-        "name": "Level 2: The Patience Grid",
+        "name": "Level 2",
         "briefing": [
             "Player 1 must navigate fast-moving guards.",
             "Player 2 must find the correct colored switches.",
