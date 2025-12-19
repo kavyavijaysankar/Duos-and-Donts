@@ -21,7 +21,7 @@ C_VISION = (255, 0, 0, 80)
 C_KEY = (255, 215, 0)        
 C_CHEST = (160, 82, 45)      
 C_CHEST_LID = (139, 69, 19)  
-C_DEACTIVATOR_DEFAULT = (200, 100, 200) 
+C_DEACTIVATOR_DEFAULT = (220, 40, 40) 
 C_TEXT = (255, 255, 255)
 C_HUD_BG = (30, 30, 40)
 C_BUTTON_HOVER = (50, 50, 70)
@@ -114,32 +114,57 @@ class Player:
         self.player_id = player_id 
         self.prev_x = x
         self.prev_y = y
-        self.is_trapped = False 
+        self.is_frozen = False 
+        self.inverted_controls = False
 
     def update(self, keys, walls):
+        # Frozen Logic (P1 specific in context, but generic implementation)
+        if self.is_frozen:
+            return 
+
         dx, dy = 0, 0
-        
-        if self.is_trapped and self.player_id == "p1":
-            dx, dy = 0, 0
+        speed = self.speed
+
+        # Input Handling with Inversion Logic
+        left_key = self.controls['left']
+        right_key = self.controls['right']
+        up_key = self.controls['up']
+        down_key = self.controls['down']
+
+        if self.inverted_controls:
+            # Inverted: Left moves Right, Right moves Left
+            if keys[left_key]: dx = speed
+            if keys[right_key]: dx = -speed
         else:
-            if keys[self.controls['up']]: dy = -self.speed
-            if keys[self.controls['down']]: dy = self.speed
-            if keys[self.controls['left']]: dx = -self.speed
-            if keys[self.controls['right']]: dx = self.speed
+            # Normal
+            if keys[left_key]: dx = -speed
+            if keys[right_key]: dx = speed
+
+        if keys[up_key]: dy = -speed
+        if keys[down_key]: dy = speed
 
         self.prev_x = self.rect.x
         self.prev_y = self.rect.y
 
-        # Only check against static walls now
         current_collidable_walls = walls 
         
+        # X Axis Movement & Collision
         self.rect.x += dx
         if self.rect.collidelist(current_collidable_walls) != -1:
-            self.rect.x -= dx
+            if self.inverted_controls:
+                # Penalty: Respawn at start if touching wall while inverted
+                self.rect.topleft = self.start_pos
+            else:
+                self.rect.x -= dx # Standard slide
             
+        # Y Axis Movement & Collision
         self.rect.y += dy
         if self.rect.collidelist(current_collidable_walls) != -1:
-            self.rect.y -= dy
+            if self.inverted_controls:
+                # Penalty: Respawn at start if touching wall while inverted
+                self.rect.topleft = self.start_pos
+            else:
+                self.rect.y -= dy
 
         playable_rect = pygame.Rect(10, 10 + HUD_OFFSET, SCREEN_WIDTH - 20, SCREEN_HEIGHT - 20 - HUD_OFFSET)
         self.rect.clamp_ip(playable_rect)
@@ -155,13 +180,21 @@ class Player:
         return self.rect.x != self.prev_x or self.rect.y != self.prev_y
 
     def draw(self, surface):
-        pygame.draw.rect(surface, self.color, self.rect, border_radius=6)
+        draw_color = self.color
+        # Visual indicator for Inverted/Frozen states
+        if self.inverted_controls:
+            draw_color = (255, 100, 255) # Pinkish for confused/inverted
+        if self.is_frozen:
+            draw_color = (100, 100, 255) # Dark Blue for frozen
+            
+        pygame.draw.rect(surface, draw_color, self.rect, border_radius=6)
         pygame.draw.circle(surface, (255,255,255), (self.rect.x + 8, self.rect.y + 8), 4)
         pygame.draw.circle(surface, (255,255,255), (self.rect.x + 24, self.rect.y + 8), 4)
 
     def reset(self):
         self.rect.topleft = self.start_pos
-        self.is_trapped = False 
+        self.is_frozen = False 
+        self.inverted_controls = False
 
 class Guard:
     def __init__(self, x, y, patrol_path, angle_start, link_id, speed=0, fov=60, vision_len=180, sweep_speed=0, color=C_GUARD_DEFAULT):
@@ -349,9 +382,9 @@ def get_levels():
         "walls": l1_walls,
         "guards": [
             # Top Guard (Guard 1)
-            {"x": l1_guard1_path[0][0], "y": l1_guard1_path[0][1], "path": l1_guard1_path, "angle": 90, "id": 1, "speed": 0, "fov": 40, "len": 250, "sweep_speed": 4.5, "color": C_GUARD_DEFAULT},
+            {"x": l1_guard1_path[0][0], "y": l1_guard1_path[0][1], "path": l1_guard1_path, "angle": 90, "id": 1, "speed": 0, "fov": 60, "len": 250, "sweep_speed": 5, "color": C_GUARD_DEFAULT},
             # Bottom Guard (Guard 2)
-            {"x": l1_guard2_path[0][0], "y": l1_guard2_path[0][1], "path": l1_guard2_path, "angle": 270, "id": 2, "speed": 0, "fov": 40, "len": 200, "sweep_speed": 4.5, "color": C_GUARD_DEFAULT}
+            {"x": l1_guard2_path[0][0], "y": l1_guard2_path[0][1], "path": l1_guard2_path, "angle": 270, "id": 2, "speed": 0, "fov": 40, "len": 200, "sweep_speed": 5, "color": C_GUARD_DEFAULT}
         ],
         "deactivators": [
             # Deactivator for Top Guard
@@ -420,18 +453,62 @@ def get_levels():
         ],
     })
 
-    # Level 3 (Dummy) - UNDER DEVELOPMENT. NO VISUALS YET
+    # Level 3
+    l3_walls = list(base_walls)
+    # walls for P1
+    l3_walls.append(offset_rect((200, 120, 200, 20)))   # Top/Mid divider
+    l3_walls.append(offset_rect((135, 480, 500, 20))) # Mid/Bot divider
+    l3_walls.append(offset_rect((200, 0, 20, 120))) # wall b/w p1 origin and treasure chest
+    l3_walls.append(offset_rect((500, 500, 20, 80))) # wall near key
+    
+    # Walls for P2
+    l3_walls.append(offset_rect((800, 200, 20, 300))) # middle vertical wall 1
+    l3_walls.append(offset_rect((1000, 100, 20, 320))) # middle vertical wall 2
+    l3_walls.append(offset_rect((800, 400, 200, 20))) # middle horizontal wall
+    l3_walls.append(offset_rect((1000, 550, 20, 100))) # wall to the right of bottom fake deactivator
+    l3_walls.append(offset_rect((1170, 100, 150, 20))) # wall below antifreeze switch
+    l3_walls.append(offset_rect((1170, 120, 20, 90))) # wall near top fake deactivator
+    l3_walls.append(offset_rect((900, 550, 20, 100))) # wall to the left of bottom fake deactivator
+    l3_walls.append(offset_rect((640, 100, 150, 20))) # wall below top real deactivator
+
+    # guard locations
+    l3_guard1_path = [offset_point((570, 620)), offset_point((570, 620))] # key guard
+    l3_guard2_path = [offset_point((100, 90)), offset_point((100, 90))] # treasure chest guard
+    l3_guard3_p2_path = [offset_point((400, 100)), offset_point((400, 600))] # wandering guard
+
     levels.append({
-        "name": "Level 3: Under Construction",
+        "name": "Level 3",
         "briefing": [
-            "This level is currently under development.",
-            "Check back later for new challenges!"
+            "Beware of FAKE deactivators!",
+            "If Player 2 contacts a fake deactivator, Player 1 FREEZES and Player 2's controls INVERT.",
+            "To cure: P2 must reach the cyan Antifreeze switch.",
+            "If Player 2 hits a wall while trapped, they respawn at the origin."
         ],
-        "p1_start": offset_point((370, 50)), "p2_start": offset_point((655, 350)), 
-        "key": offset_rect((600, 300, 40, 40)), "chest": offset_rect((600, 400, 40, 40)), 
-        "walls": list(base_walls),
-        "guards": [],
-        "deactivators": []
+        "p1_start": offset_point((250, 50)), 
+        "p2_start": offset_point((640, 620)), 
+        "key": offset_rect((580, 500, 40, 40)), # In middle section
+        "chest": offset_rect((50, 50, 40, 40)), # In top section
+        "walls": l3_walls,
+        "guards": [
+            # P1 Gatekeepers
+            {"x": l3_guard1_path[0][0], "y": l3_guard1_path[0][1], "path": l3_guard1_path, "angle": 90, "id": 1, "speed": 0, "sweep_speed": 4, "fov": 70, "len": 150, "color": C_GUARD_DEFAULT}, # key guard
+            {"x": l3_guard2_path[0][0], "y": l3_guard2_path[0][1], "path": l3_guard2_path, "angle": 140, "id": 2, "speed": 0, "sweep_speed": 6, "fov": 90, "len": 150, "color": C_GUARD_DEFAULT}, # treasure chest guard
+            {"x": l3_guard3_p2_path[0][0], "y": l3_guard3_p2_path[0][1], "path": l3_guard3_p2_path, "angle": 90, "id": 3, "speed": 8, "fov": 60, "len": 150, "color": C_GUARD_DEFAULT}, # wandering guard
+        ],
+        "deactivators": [
+            # Real deactivator
+            {"x": offset_point((660, 40))[0], "y": offset_point((660, 40))[1], "id": 1, "fake": False, "color": C_DEACTIVATOR_DEFAULT}, # top deactivator
+            {"x": offset_point((1220, 135))[0], "y": offset_point((1220, 135))[1], "id": 2, "fake": False, "color": C_DEACTIVATOR_DEFAULT}, # below antifreeze switch
+            {"x": offset_point((900, 350))[0], "y": offset_point((900, 350))[1], "id": 3, "fake": False, "color": C_DEACTIVATOR_DEFAULT}, # middle deactivator
+            # Fake deactivator
+            {"x": offset_point((1030, 300))[0], "y": offset_point((1030, 300))[1], "id": 999, "fake": True, "color": C_DEACTIVATOR_DEFAULT}, # top
+            {"x": offset_point((940, 600))[0], "y": offset_point((940, 600))[1], "id": 999, "fake": True, "color": C_DEACTIVATOR_DEFAULT}, # bottom
+            # Antifreeze switch
+            {"x": offset_point((1220, 30))[0], "y": offset_point((1220, 30))[1], "id": 888, "fake": True, "color": (0, 255, 255)},
+        ],
+        "instructions": [
+             {"id": "l3_hint", "lines": ["Beware of the fake", "Deactivators"], "rect": offset_rect((860, 30, 220, 60)), "start_active": True},
+        ]
     })
 
     return levels
@@ -591,8 +668,23 @@ class Game:
             for d in self.deactivators:
                 if self.current_level_idx == 0: continue
                 
-                if d.link_id != 10: d.update(self.p2.rect)
-                if d.is_pressed and not d.is_fake: active_links[d.link_id] = True
+                d.update(self.p2.rect)
+                
+                if d.is_pressed:
+                    # CHECK FOR SPECIAL TRAP SWITCHES
+                    if d.link_id == 999: # TRAP
+                        self.p1.is_frozen = True
+                        self.p1.is_trapped = True # Keep existing flag for guards potentially
+                        self.p2.inverted_controls = True
+                    
+                    # CHECK FOR CURE SWITCH
+                    elif d.link_id == 888: # CURE
+                        self.p1.is_frozen = False
+                        self.p1.is_trapped = False
+                        self.p2.inverted_controls = False
+                    
+                    elif not d.is_fake: 
+                        active_links[d.link_id] = True
             
             for g in self.guards:
                 g.active = not active_links.get(g.link_id, False)
