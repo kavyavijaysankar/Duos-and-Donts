@@ -10,7 +10,8 @@ HUD_OFFSET = 60
 
 # COLORS
 C_BG = (15, 15, 20)          
-C_WALL = (100, 110, 130)     
+C_WALL = (100, 110, 130)
+C_WALL_DANGER = (200, 50, 50) # New color for danger walls
 C_P1 = (60, 150, 250)        
 C_P2 = (100, 220, 100)       
 C_GUARD_DEFAULT = (220, 40, 40) 
@@ -115,6 +116,7 @@ class Player:
         self.prev_x = x
         self.prev_y = y
         self.is_frozen = False 
+        self.is_trapped = False # Added explicitly for state tracking
         self.inverted_controls = False
 
     def update(self, keys, walls):
@@ -194,6 +196,7 @@ class Player:
     def reset(self):
         self.rect.topleft = self.start_pos
         self.is_frozen = False 
+        self.is_trapped = False
         self.inverted_controls = False
 
 class Guard:
@@ -332,10 +335,14 @@ def get_levels():
     
     levels.append({
         "name": "Level 0: Tutorial",
-        "briefing": [
-            "Welcome to Duos & Don'ts.",
-            "Player 1 - Blue: Navigate the maze, collect the key, and open the chest.",
-            "Player 2 - Green: No role in this level.",
+        "briefing_p1": [
+            "Navigate the maze (WASD).",
+            "Collect the key.",
+            "Open the chest to win."
+        ],
+        "briefing_p2": [
+            "No role in this level.",
+            "Sit back and watch."
         ],
         "p1_start": offset_point((70, 540)), "p2_start": offset_point((1230, 30)), 
         "key": offset_rect((300, 580, 40, 40)), "chest": offset_rect((550, 50, 40, 40)), 
@@ -372,10 +379,15 @@ def get_levels():
     
     levels.append({
         "name": "Level 1",
-        "briefing": [
-            "Blue (WASD): Avoid obstacles. P2 controls your path.",
-            "Green (Arrows): Step on Matching Buttons to disable Obstacles.",
-            "Communicate where the obstacles are and which button P2 needs.",
+        "briefing_p1": [
+            "Avoid obstacles.",
+            "P2 controls your path.",
+            "Communicate obstacle locations."
+        ],
+        "briefing_p2": [
+            "Step on Matching Buttons (Arrows).",
+            "Disable obstacles for P1.",
+            "Listen to P1's calls."
         ],
         "p1_start": offset_point((70, 620)), "p2_start": offset_point((655, 350)), 
         "key": offset_rect((300, 580, 40, 40)), "chest": offset_rect((550, 50, 40, 40)), 
@@ -425,10 +437,15 @@ def get_levels():
     
     levels.append({
         "name": "Level 2",
-        "briefing": [
-            "Player 1 must navigate fast-moving guards.",
-            "Player 2 must find the correct colored switches.",
-            "Communicate efficiently."
+        "briefing_p1": [
+            "Navigate fast-moving guards.",
+            "Reach the chest.",
+            "Communicate."
+        ],
+        "briefing_p2": [
+            "Find correct colored switches.",
+            "Clear the path.",
+            "Communicate."
         ],
         "p1_start": offset_point((50, 50)), "p2_start": l2_p2_start,
         "key": offset_rect((550, 610, 40, 40)), "chest": offset_rect((100, 50, 40, 40)), 
@@ -483,11 +500,19 @@ def get_levels():
 
     levels.append({
         "name": "Level 3",
-        "briefing": [
-            "Beware of FAKE deactivators!",
-            "If Player 2 contacts a fake deactivator, Player 1 FREEZES and Player 2's controls INVERT.",
-            "To cure: P2 must reach the cyan Antifreeze switch.",
-            "If Player 2 hits a wall while trapped, they respawn at the origin."
+        "briefing_p1": [
+            "Avoid Guards.",
+            "If P2 hits fake switch:",
+            "YOU FREEZE.",
+            "Wait for cure."
+        ],
+        "briefing_p2": [
+            "Beware FAKE deactivators!",
+            "If you hit one:",
+            " - P1 Freezes",
+            " - Your controls INVERT",
+            " - Walls become LAVA (Reset)",
+            "Find Cyan Switch to cure."
         ],
         "p1_start": offset_point((250, 50)), 
         "p2_start": offset_point((640, 620)), 
@@ -496,7 +521,7 @@ def get_levels():
         "walls": l3_walls,
         "guards": [
             # P1 Gatekeepers
-            {"x": l3_guard1_path[0][0], "y": l3_guard1_path[0][1], "path": l3_guard1_path, "angle": 90, "id": 1, "speed": 0, "sweep_speed": 4, "fov": 70, "len": 150, "color": C_GUARD_DEFAULT}, # key guard
+            {"x": l3_guard1_path[0][0], "y": l3_guard1_path[0][1], "path": l3_guard1_path, "angle": 90, "id": 1, "speed": 0, "sweep_speed": 0, "fov": 60, "len": 150, "color": C_GUARD_DEFAULT}, # key guard
             {"x": l3_guard2_path[0][0], "y": l3_guard2_path[0][1], "path": l3_guard2_path, "angle": 140, "id": 2, "speed": 0, "sweep_speed": 6, "fov": 90, "len": 150, "color": C_GUARD_DEFAULT}, # treasure chest guard
             {"x": l3_guard3_p2_path[0][0], "y": l3_guard3_p2_path[0][1], "path": l3_guard3_p2_path, "angle": 90, "id": 3, "speed": 14, "fov": 60, "len": 150, "color": C_GUARD_DEFAULT}, # wandering guard
         ],
@@ -512,7 +537,7 @@ def get_levels():
             {"x": offset_point((1220, 30))[0], "y": offset_point((1220, 30))[1], "id": 888, "fake": True, "color": (0, 255, 255)},
         ],
         "instructions": [
-             {"id": "l3_hint", "lines": ["Beware of the fake", "Deactivators"], "rect": offset_rect((860, 30, 220, 60)), "start_active": True},
+             {"id": "l3_hint", "lines": ["Beware of the fake", "Deactivators"], "rect": offset_rect((1030, 570, 220, 60)), "start_active": True},
         ]
     })
 
@@ -545,7 +570,8 @@ class Game:
         self.current_level_idx = idx
         data = self.levels[idx]
         self.level_name = data["name"]
-        self.level_briefing = data["briefing"]
+        self.briefing_p1 = data["briefing_p1"]
+        self.briefing_p2 = data["briefing_p2"]
         self.walls = [pygame.Rect(w) for w in data["walls"]]
         
         p1_controls = {'up': pygame.K_w, 'down': pygame.K_s, 'left': pygame.K_a, 'right': pygame.K_d}
@@ -737,7 +763,14 @@ class Game:
             self.draw_briefing_screen()
 
         elif self.state in ("PLAYING", "VICTORY"):
-            for wall in self.walls: pygame.draw.rect(screen, C_WALL, wall)
+            
+            # Draw Walls (Checking for Trap State in Level 3)
+            current_wall_color = C_WALL
+            if self.current_level_idx == 3 and self.p1.is_frozen:
+                 current_wall_color = C_WALL_DANGER
+            
+            for wall in self.walls: pygame.draw.rect(screen, current_wall_color, wall)
+            
             for d in self.deactivators: d.draw(screen)
             
             if not self.p1_has_key:
@@ -763,6 +796,28 @@ class Game:
             if self.state == "PLAYING":
                 restart_text = font_small.render("Press 'R' to Restart Level", True, (100, 100, 120))
                 screen.blit(restart_text, (SCREEN_WIDTH // 2 - restart_text.get_width() // 2, 15))
+                
+                # LEVEL 3 TRAP HUD WARNING (Styled Box)
+            if self.current_level_idx == 3 and self.p1.is_frozen:
+                warn_text = "!! P1 FROZEN - P2 DON'T TOUCH WALLS !!"
+                warn_surf = font_ui.render(warn_text, True, (255, 50, 50))
+                
+                # Calculate box dimensions based on text size
+                padding = 15
+                box_w = warn_surf.get_width() + (padding * 2)
+                box_h = warn_surf.get_height() + (padding * 2)
+                box_rect = pygame.Rect(SCREEN_WIDTH//2 - box_w//2, 85, box_w, box_h)
+                
+                # Draw the Semi-Transparent Grey Box
+                s = pygame.Surface((box_rect.width, box_rect.height), pygame.SRCALPHA)
+                s.fill(C_TUTORIAL_BOX) 
+                screen.blit(s, (box_rect.x, box_rect.y))
+                
+                # Draw the Border
+                pygame.draw.rect(screen, C_TUTORIAL_BORDER, box_rect, 2, border_radius=8)
+                
+                # Draw the Text centered in the box
+                screen.blit(warn_surf, (box_rect.x + padding, box_rect.y + padding))
 
             if self.state == "VICTORY":
                 overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
@@ -797,14 +852,34 @@ class Game:
     def draw_briefing_screen(self):
         screen.fill(C_HUD_BG)
         draw_centered_text(screen, self.level_name, -300, font_title, C_KEY)
+        
         y_start = SCREEN_HEIGHT // 2 - 200
-        rules_title = font_ui.render("<< MISSION BRIEFING >>", True, C_P1)
-        screen.blit(rules_title, rules_title.get_rect(centerx=SCREEN_WIDTH//2, top=y_start))
-        y_offset = y_start + 50
-        for line in self.level_briefing:
+        
+        # Draw Center Divider
+        pygame.draw.line(screen, C_WALL, (SCREEN_WIDTH // 2, y_start), (SCREEN_WIDTH // 2, y_start + 400), 2)
+        
+        # Player 1 Header
+        p1_title = font_ui.render("Player 1 (Blue)", True, C_P1)
+        screen.blit(p1_title, p1_title.get_rect(centerx=SCREEN_WIDTH // 4, top=y_start))
+        
+        # Player 2 Header
+        p2_title = font_ui.render("Player 2 (Green)", True, C_P2)
+        screen.blit(p2_title, p2_title.get_rect(centerx=3 * SCREEN_WIDTH // 4, top=y_start))
+        
+        y_offset_p1 = y_start + 60
+        for line in self.briefing_p1:
             text_surf = font_rules.render(line, True, C_TEXT)
-            screen.blit(text_surf, text_surf.get_rect(left=SCREEN_WIDTH//6, top=y_offset)) 
-            y_offset += 30
+            # Center text within the left half
+            screen.blit(text_surf, text_surf.get_rect(centerx=SCREEN_WIDTH // 4, top=y_offset_p1))
+            y_offset_p1 += 35
+            
+        y_offset_p2 = y_start + 60
+        for line in self.briefing_p2:
+             text_surf = font_rules.render(line, True, C_TEXT)
+             # Center text within the right half
+             screen.blit(text_surf, text_surf.get_rect(centerx=3 * SCREEN_WIDTH // 4, top=y_offset_p2))
+             y_offset_p2 += 35
+
         draw_centered_text(screen, "Press ENTER to Begin Mission", 250, font_ui, C_KEY)
 
 
