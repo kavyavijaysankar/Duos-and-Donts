@@ -456,10 +456,14 @@ def get_levels():
     # Level 3
     l3_walls = list(base_walls)
     # walls for P1
-    l3_walls.append(offset_rect((200, 120, 200, 20)))   # Top/Mid divider
+    l3_walls.append(offset_rect((200, 120, 340, 20)))   # Top/Mid divider
     l3_walls.append(offset_rect((135, 480, 500, 20))) # Mid/Bot divider
     l3_walls.append(offset_rect((200, 0, 20, 120))) # wall b/w p1 origin and treasure chest
     l3_walls.append(offset_rect((500, 500, 20, 80))) # wall near key
+    l3_walls.append(offset_rect((400, 250, 20, 250))) # middle vertical wall
+    l3_walls.append(offset_rect((520, 140, 20, 200))) # right vertical wall
+    l3_walls.append(offset_rect((260, 140, 20, 200))) # left vertical wall
+    l3_walls.append(offset_rect((130, 320, 20, 180))) # left vertical wall
     
     # Walls for P2
     l3_walls.append(offset_rect((800, 200, 20, 300))) # middle vertical wall 1
@@ -470,11 +474,12 @@ def get_levels():
     l3_walls.append(offset_rect((1170, 120, 20, 90))) # wall near top fake deactivator
     l3_walls.append(offset_rect((900, 550, 20, 100))) # wall to the left of bottom fake deactivator
     l3_walls.append(offset_rect((640, 100, 150, 20))) # wall below top real deactivator
+    l3_walls.append(offset_rect((1000, 300, 135, 20))) # wall near middle real deactivator
 
     # guard locations
     l3_guard1_path = [offset_point((570, 620)), offset_point((570, 620))] # key guard
     l3_guard2_path = [offset_point((100, 90)), offset_point((100, 90))] # treasure chest guard
-    l3_guard3_p2_path = [offset_point((400, 100)), offset_point((400, 600))] # wandering guard
+    l3_guard3_p2_path = [offset_point((550, 100)), offset_point((50, 580))] # wandering guard
 
     levels.append({
         "name": "Level 3",
@@ -493,7 +498,7 @@ def get_levels():
             # P1 Gatekeepers
             {"x": l3_guard1_path[0][0], "y": l3_guard1_path[0][1], "path": l3_guard1_path, "angle": 90, "id": 1, "speed": 0, "sweep_speed": 4, "fov": 70, "len": 150, "color": C_GUARD_DEFAULT}, # key guard
             {"x": l3_guard2_path[0][0], "y": l3_guard2_path[0][1], "path": l3_guard2_path, "angle": 140, "id": 2, "speed": 0, "sweep_speed": 6, "fov": 90, "len": 150, "color": C_GUARD_DEFAULT}, # treasure chest guard
-            {"x": l3_guard3_p2_path[0][0], "y": l3_guard3_p2_path[0][1], "path": l3_guard3_p2_path, "angle": 90, "id": 3, "speed": 8, "fov": 60, "len": 150, "color": C_GUARD_DEFAULT}, # wandering guard
+            {"x": l3_guard3_p2_path[0][0], "y": l3_guard3_p2_path[0][1], "path": l3_guard3_p2_path, "angle": 90, "id": 3, "speed": 14, "fov": 60, "len": 150, "color": C_GUARD_DEFAULT}, # wandering guard
         ],
         "deactivators": [
             # Real deactivator
@@ -501,7 +506,7 @@ def get_levels():
             {"x": offset_point((1220, 135))[0], "y": offset_point((1220, 135))[1], "id": 2, "fake": False, "color": C_DEACTIVATOR_DEFAULT}, # below antifreeze switch
             {"x": offset_point((900, 350))[0], "y": offset_point((900, 350))[1], "id": 3, "fake": False, "color": C_DEACTIVATOR_DEFAULT}, # middle deactivator
             # Fake deactivator
-            {"x": offset_point((1030, 300))[0], "y": offset_point((1030, 300))[1], "id": 999, "fake": True, "color": C_DEACTIVATOR_DEFAULT}, # top
+            {"x": offset_point((1030, 340))[0], "y": offset_point((1030, 340))[1], "id": 999, "fake": True, "color": C_DEACTIVATOR_DEFAULT}, # top
             {"x": offset_point((940, 600))[0], "y": offset_point((940, 600))[1], "id": 999, "fake": True, "color": C_DEACTIVATOR_DEFAULT}, # bottom
             # Antifreeze switch
             {"x": offset_point((1220, 30))[0], "y": offset_point((1220, 30))[1], "id": 888, "fake": True, "color": (0, 255, 255)},
