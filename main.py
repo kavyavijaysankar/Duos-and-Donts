@@ -427,7 +427,7 @@ def get_levels():
             "This level is currently under development.",
             "Check back later for new challenges!"
         ],
-        "p1_start": offset_point((100, 300)), "p2_start": offset_point((1100, 300)), 
+        "p1_start": offset_point((370, 50)), "p2_start": offset_point((655, 350)), 
         "key": offset_rect((600, 300, 40, 40)), "chest": offset_rect((600, 400, 40, 40)), 
         "walls": list(base_walls),
         "guards": [],
