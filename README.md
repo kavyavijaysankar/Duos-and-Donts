@@ -1,5 +1,5 @@
 # Duos-and-Donts
-This is a 2-player co-operative serious game meant to be used as a tool in couples therapy. The gameplay dynamics are designed to foster interpersonal and relational skills between players. This game is a proof-of-concept and not a deployable clinical tool.
+This is a 2-player co-operative serious game meant to be used as a tool in couples therapy. The gameplay dynamics are designed to foster interpersonal and relational skills between players. This game is a proof-of-concept and not a deployable clinical tool. Instructions to [run](#how-to-run-locally) the game locally are provided below.
 
 ## How to Play:
 The game follows a levelled system where players progress through increasingly complex challenges that require synchronized actions and clear communication.
