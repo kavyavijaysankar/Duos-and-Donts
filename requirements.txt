@@ -1,5 +1,5 @@
 # Core game dependency
-pygame
+pygame==2.6.1
 
 # Web deployment build tool (Not required for local desktop play)
 pygbag
