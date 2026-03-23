@@ -216,6 +216,37 @@ class Guard:
         self.color = color
         self.cone_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
 
+        # PRE-RENDERING SURFACES
+        if self.color == C_FIRE:
+            self.fire_frames = []
+            # We create 3 different frames for the flickering effect
+            for flicker in range(3):
+                # Flames are taller than the rect, so we make a taller surface
+                frame = pygame.Surface((32, 45), pygame.SRCALPHA)
+                cx, cy = 16, 45 # Local center-bottom of the frame
+                
+                # Draw outer flame (same math as your draw loop, but local)
+                pts_out = [(cx-15, cy), (cx-10, cy-25-flicker*2), (cx, cy-15), (cx+10, cy-30+flicker*2), (cx+15, cy)]
+                pygame.draw.polygon(frame, C_FIRE, pts_out)
+                
+                # Draw inner flame
+                pts_in = [(cx-8, cy), (cx-5, cy-15-flicker), (cx, cy-10), (cx+5, cy-20+flicker), (cx+8, cy)]
+                pygame.draw.polygon(frame, C_FIRE_INNER, pts_in)
+                
+                self.fire_frames.append(frame)
+        else:
+            # Pre-render the standard Guard body
+            self.image_on = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(self.image_on, self.color, (0, 0, self.rect.width, self.rect.height), border_radius=4)
+            
+            # Pre-render the "Deactivated" Guard body
+            self.image_off = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(self.image_off, C_GUARD_OFF, (0, 0, self.rect.width, self.rect.height), border_radius=4)
+
+        # Vision cone optimization (keeping your small surface fix)
+        box_size = self.vision_length * 2
+        self.cone_surf = pygame.Surface((box_size, box_size), pygame.SRCALPHA)
+
     def update(self):
         if not self.active: return
         
@@ -244,56 +275,32 @@ class Guard:
             self.current_angle = self.base_angle
 
     def draw(self, surface):
-        # 1. Draw the Body (Guard or Fire)
+        # 1. DRAW THE BODY (Blitting the pre-rendered images)
         if self.color == C_FIRE:
             if self.active:
-                flicker = (pygame.time.get_ticks() // 100) % 3
-                cx, cy = self.rect.centerx, self.rect.bottom
-                points_outer = [
-                    (cx - 15, cy), (cx - 10, cy - 25 - flicker*2),
-                    (cx, cy - 15), (cx + 10, cy - 30 + flicker*2), (cx + 15, cy)
-                ]
-                pygame.draw.polygon(surface, C_FIRE, points_outer)
-                points_inner = [
-                    (cx - 8, cy), (cx - 5, cy - 15 - flicker),
-                    (cx, cy - 10), (cx + 5, cy - 20 + flicker), (cx + 8, cy)
-                ]
-                pygame.draw.polygon(surface, C_FIRE_INNER, points_inner)
+                flicker_idx = (pygame.time.get_ticks() // 100) % 3
+                # Blit the pre-rendered fire frame
+                # Offset Y slightly so it sits on the floor correctly
+                surface.blit(self.fire_frames[flicker_idx], (self.rect.x, self.rect.bottom - 45))
             else:
+                # Still draw the simple ellipse for "off" fire
                 pygame.draw.ellipse(surface, C_GUARD_OFF, (self.rect.x, self.rect.bottom - 10, 32, 10))
         else:
-            draw_color = self.color if self.active else C_GUARD_OFF
-            pygame.draw.rect(surface, draw_color, self.rect, border_radius=4)
-        
-        # 2. Draw the Vision Cone (BUT NOT FOR FIRE!)
+            # Blit the correct pre-rendered guard image
+            img = self.image_on if self.active else self.image_off
+            surface.blit(img, self.rect)
+
+        # 2. DRAW THE VISION CONE (Optimized small surface)
         if self.active and self.color != C_FIRE:
-            # Wipe our SMALL optimized surface clean
             self.cone_surf.fill((0, 0, 0, 0)) 
-            
-            # The center of the cone ON THE SMALL SURFACE is just the middle of the box
             local_center = (self.vision_length, self.vision_length)
             
-            # Calculate the points relative to the local_center
             rad = math.radians(-self.current_angle)
-            l_rad = rad - math.radians(self.fov / 2)
-            lx = local_center[0] + math.cos(l_rad) * self.vision_length
-            ly = local_center[1] + math.sin(l_rad) * self.vision_length
+            l_rad = rad - math.radians(self.fov/2); lx = local_center[0] + math.cos(l_rad)*self.vision_length; ly = local_center[1] + math.sin(l_rad)*self.vision_length
+            r_rad = rad + math.radians(self.fov/2); rx = local_center[0] + math.cos(r_rad)*self.vision_length; ry = local_center[1] + math.sin(r_rad)*self.vision_length
             
-            r_rad = rad + math.radians(self.fov / 2)
-            rx = local_center[0] + math.cos(r_rad) * self.vision_length
-            ry = local_center[1] + math.sin(r_rad) * self.vision_length
-            
-            # Draw the polygon onto the small surface
-            cone_color = list(self.color) + [80] 
-            pygame.draw.polygon(self.cone_surf, cone_color, [local_center, (lx, ly), (rx, ry)])
-            
-            # Figure out where to put the top-left corner of the small surface on the main screen
-            top_left_x = self.rect.center[0] - self.vision_length
-            top_left_y = self.rect.center[1] - self.vision_length
-            
-            # Blit the small surface onto the main screen
-            surface.blit(self.cone_surf, (top_left_x, top_left_y))
-
+            pygame.draw.polygon(self.cone_surf, list(self.color)+[80], [local_center, (lx, ly), (rx, ry)])
+            surface.blit(self.cone_surf, (self.rect.centerx - self.vision_length, self.rect.centery - self.vision_length))
 
     def check_collision(self, player_rect):
         if not self.active: return False
