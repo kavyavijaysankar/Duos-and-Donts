@@ -6,7 +6,7 @@ import asyncio
 # Screen settings
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
-FPS = 60
+FPS = 80
 HUD_OFFSET = 60
 
 # COLORS
@@ -43,10 +43,10 @@ pygame.display.set_caption("Duos & Don'ts")
 clock = pygame.time.Clock()
 
 # Fonts
-font_title = pygame.font.SysFont("Arial", 50, bold=True)
-font_ui = pygame.font.SysFont("Consolas", 24)
-font_small = pygame.font.SysFont("Consolas", 18)
-font_rules = pygame.font.SysFont("Consolas", 20)
+font_title = pygame.font.Font("assets/OpenSans-Bold.ttf", 50)
+font_ui = pygame.font.Font("assets/Inconsolata-Regular.ttf", 24)
+font_small = pygame.font.Font("assets/Inconsolata-Regular.ttf", 18)
+font_rules = pygame.font.Font("assets/Inconsolata-Regular.ttf", 20)
 
 # HELPERS
 def offset_rect(r):
@@ -214,6 +214,7 @@ class Guard:
         self.sweep_speed = sweep_speed 
         self.sweep_offset = 0
         self.color = color
+        self.cone_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
 
     def update(self):
         if not self.active: return
@@ -270,9 +271,9 @@ class Guard:
             r_rad = rad + math.radians(self.fov / 2); rx = center[0] + math.cos(r_rad) * self.vision_length; ry = center[1] + math.sin(r_rad) * self.vision_length
 
             cone_color = list(self.color) + [80] 
-            cone_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-            pygame.draw.polygon(cone_surf, cone_color, [center, (lx, ly), (rx, ry)])
-            surface.blit(cone_surf, (0,0))
+            self.cone_surf.fill((0, 0, 0, 0)) # Wipe the surface clean (transparent)
+            pygame.draw.polygon(self.cone_surf, cone_color, [center, (lx, ly), (rx, ry)])
+            surface.blit(self.cone_surf, (0,0))
 
     def check_collision(self, player_rect):
         if not self.active: return False
