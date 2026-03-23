@@ -1,6 +1,7 @@
 import pygame
 import sys
 import math
+import asyncio
 
 # Screen settings
 SCREEN_WIDTH = 1280
@@ -899,7 +900,7 @@ class Game:
 
 
 # MAIN LOOP EXECUTION
-if __name__ == '__main__':
+async def main():
     try:
         game = Game()
         running = True
@@ -935,6 +936,9 @@ if __name__ == '__main__':
             game.update()
             game.draw()
             clock.tick(FPS)
+            
+
+            await asyncio.sleep(0) 
 
     except Exception as e:
         print(f"An unexpected error occurred during the game loop: {e}")
@@ -943,3 +947,7 @@ if __name__ == '__main__':
         if pygame.get_init():
             pygame.quit()
         sys.exit(0)
+
+# MAIN LOOP EXECUTION
+if __name__ == '__main__':
+    asyncio.run(main())
