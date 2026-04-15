@@ -2,4 +2,4 @@
 pygame==2.6.1
 
 # Web deployment build tool (Not required for local desktop play)
-pygbag
+# pygbag
