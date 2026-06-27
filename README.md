@@ -1,8 +1,7 @@
-# Duos-and-Donts
+# Duos-and-Donts (more levels coming soon!)
 This is a 2-player co-operative serious game meant to be used as a tool in couples therapy. The gameplay dynamics are designed to foster interpersonal and relational skills between players. This game is a proof-of-concept and not a deployable clinical tool.
 
 ### 🎮 [Play the Game in Your Browser](https://kavyavijaysankar.github.io/Duos-and-Donts/)
-*No installation required. Can be played on any browser.*
 
 ## How to Play:
 The game follows a levelled system where players progress through increasingly complex challenges that require synchronized actions and clear communication.
