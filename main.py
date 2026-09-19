@@ -1,6 +1,7 @@
 import pygame
 import sys
 import math
+import random
 import asyncio
 
 # Screen settings
@@ -200,8 +201,16 @@ class Player:
         self.inverted_controls = False
 
 class Guard:
-    def __init__(self, x, y, patrol_path, angle_start, link_id, speed=0, fov=60, vision_len=180, sweep_speed=0, color=C_GUARD_DEFAULT):
+    def __init__(self, x, y, patrol_path, angle_start, link_id, speed=0, fov=60, vision_len=180, sweep_speed=0, color=C_GUARD_DEFAULT, target="p1", hidden_cone=False, hidden_body=False, rotate=False, random_patrol=False, pause_frames=0):
         self.rect = pygame.Rect(x, y, 32, 32)
+        self.target = target          # which player this guard catches ("p1" or "p2")
+        self.hidden_cone = hidden_cone # Level 6: cone exists but is not drawn on the field
+        self.hidden_body = hidden_body # Level 7: body is invisible too (radar still shows it)
+        self.rotate = rotate          # Level 7: cone revolves continuously instead of oscillating
+        self.random_patrol = random_patrol # Level 4: picks its next waypoint at random
+        self.pause_frames = pause_frames   # frames to wait at each waypoint
+        self.pause_left = 0
+        self.frozen = False           # Level 7: switch-frozen (stops moving/rotating, still detects)
         self.patrol_path = patrol_path
         self.current_point = 0
         self.speed = speed
@@ -249,25 +258,41 @@ class Guard:
 
     def update(self):
         if not self.active: return
-        
-        if self.speed > 0 and self.patrol_path and len(self.patrol_path) > 1:
-            target = self.patrol_path[self.current_point]
-            tx, ty = target
-            dir_x, dir_y = tx - self.rect.x, ty - self.rect.y
-            dist = math.hypot(dir_x, dir_y)
-            
-            if dist < self.speed:
-                self.rect.x = tx
-                self.rect.y = ty
-                self.current_point = (self.current_point + 1) % len(self.patrol_path)
-            else:
-                self.rect.x += (dir_x / dist) * self.speed
-                self.rect.y += (dir_y / dist) * self.speed
-                if self.sweep_speed == 0:
-                    self.base_angle = -math.degrees(math.atan2(dir_y, dir_x))
+        if self.frozen: return  # Level 7: a frozen guard stops moving and rotating (still detects)
 
-        if self.sweep_speed != 0:
-            self.sweep_offset += self.sweep_speed
+        factor = 0.5 if getattr(self, "calmed", False) else 1.0  # Level 5: partner-on-pad calm
+
+        if self.speed > 0 and self.patrol_path and len(self.patrol_path) > 1:
+            if self.pause_left > 0:
+                self.pause_left -= 1
+            else:
+                target = self.patrol_path[self.current_point]
+                tx, ty = target
+                dir_x, dir_y = tx - self.rect.x, ty - self.rect.y
+                dist = math.hypot(dir_x, dir_y)
+                step = self.speed * factor
+
+                if dist < step:
+                    self.rect.x = tx
+                    self.rect.y = ty
+                    if self.random_patrol:
+                        self.pause_left = self.pause_frames
+                        choices = [i for i in range(len(self.patrol_path)) if i != self.current_point]
+                        self.current_point = random.choice(choices)
+                    else:
+                        self.current_point = (self.current_point + 1) % len(self.patrol_path)
+                else:
+                    self.rect.x += (dir_x / dist) * step
+                    self.rect.y += (dir_y / dist) * step
+                    if self.sweep_speed == 0 and self.fov < 360:
+                        self.base_angle = -math.degrees(math.atan2(dir_y, dir_x))
+
+        if self.rotate:
+            # Level 7: lighthouse beam, slow continuous revolution
+            self.sweep_offset = (self.sweep_offset + self.sweep_speed * factor) % 360
+            self.current_angle = self.base_angle + self.sweep_offset
+        elif self.sweep_speed != 0:
+            self.sweep_offset += self.sweep_speed * factor
             if abs(self.sweep_offset) > 45: 
                 self.sweep_speed *= -1
             self.current_angle = self.base_angle + self.sweep_offset
@@ -275,6 +300,31 @@ class Guard:
             self.current_angle = self.base_angle
 
     def draw(self, surface):
+        # Level 7: fully invisible guard. Freezing it reveals a faint ghost as the reward.
+        if self.hidden_body:
+            if self.frozen and self.active:
+                ghost = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+                pygame.draw.rect(ghost, (140, 220, 235, 90), (0, 0, self.rect.width, self.rect.height), border_radius=4)
+                pygame.draw.rect(ghost, (140, 220, 235, 160), (0, 0, self.rect.width, self.rect.height), 2, border_radius=4)
+                surface.blit(ghost, self.rect)
+                # Faint outline of the locked beam so P1 can route around it with confidence
+                self.cone_surf.fill((0, 0, 0, 0))
+                local_center = (self.vision_length, self.vision_length)
+                rad = math.radians(-self.current_angle)
+                l_rad = rad - math.radians(self.fov/2); lx = local_center[0] + math.cos(l_rad)*self.vision_length; ly = local_center[1] + math.sin(l_rad)*self.vision_length
+                r_rad = rad + math.radians(self.fov/2); rx = local_center[0] + math.cos(r_rad)*self.vision_length; ry = local_center[1] + math.sin(r_rad)*self.vision_length
+                pygame.draw.polygon(self.cone_surf, (140, 220, 235, 35), [local_center, (lx, ly), (rx, ry)])
+                pygame.draw.lines(self.cone_surf, (140, 220, 235, 90), True, [local_center, (lx, ly), (rx, ry)], 1)
+                surface.blit(self.cone_surf, (self.rect.centerx - self.vision_length, self.rect.centery - self.vision_length))
+            return
+
+        # Telegraph for the random patrol: a faint line to its next destination
+        if self.random_patrol and self.active and self.patrol_path:
+            tx, ty = self.patrol_path[self.current_point]
+            dest = (tx + self.rect.width // 2, ty + self.rect.height // 2)
+            pygame.draw.line(surface, (200, 90, 90), self.rect.center, dest, 1)
+            pygame.draw.circle(surface, (200, 90, 90), (int(dest[0]), int(dest[1])), 4, 1)
+
         # 1. DRAW THE BODY (Blitting the pre-rendered images)
         if self.color == C_FIRE:
             if self.active:
@@ -289,18 +339,28 @@ class Guard:
             # Blit the correct pre-rendered guard image
             img = self.image_on if self.active else self.image_off
             surface.blit(img, self.rect)
+            if getattr(self, "calmed", False) and self.active:
+                pygame.draw.rect(surface, (110, 170, 255), self.rect, 2, border_radius=4)
 
-        # 2. DRAW THE VISION CONE (Optimized small surface)
-        if self.active and self.color != C_FIRE:
-            self.cone_surf.fill((0, 0, 0, 0)) 
-            local_center = (self.vision_length, self.vision_length)
-            
-            rad = math.radians(-self.current_angle)
-            l_rad = rad - math.radians(self.fov/2); lx = local_center[0] + math.cos(l_rad)*self.vision_length; ly = local_center[1] + math.sin(l_rad)*self.vision_length
-            r_rad = rad + math.radians(self.fov/2); rx = local_center[0] + math.cos(r_rad)*self.vision_length; ry = local_center[1] + math.sin(r_rad)*self.vision_length
-            
-            pygame.draw.polygon(self.cone_surf, list(self.color)+[80], [local_center, (lx, ly), (rx, ry)])
-            surface.blit(self.cone_surf, (self.rect.centerx - self.vision_length, self.rect.centery - self.vision_length))
+        # 2. DRAW THE DETECTION AREA
+        if self.active and self.color != C_FIRE and not self.hidden_cone:
+            if self.fov >= 360:
+                # Aura guard: an unambiguous circle, no cone to misread
+                aura = pygame.Surface((self.vision_length * 2, self.vision_length * 2), pygame.SRCALPHA)
+                pygame.draw.circle(aura, list(self.color) + [45], (self.vision_length, self.vision_length), self.vision_length)
+                pygame.draw.circle(aura, list(self.color) + [120], (self.vision_length, self.vision_length), self.vision_length, 2)
+                surface.blit(aura, (self.rect.centerx - self.vision_length, self.rect.centery - self.vision_length))
+            else:
+                self.cone_surf.fill((0, 0, 0, 0)) 
+                local_center = (self.vision_length, self.vision_length)
+                
+                rad = math.radians(-self.current_angle)
+                l_rad = rad - math.radians(self.fov/2); lx = local_center[0] + math.cos(l_rad)*self.vision_length; ly = local_center[1] + math.sin(l_rad)*self.vision_length
+                r_rad = rad + math.radians(self.fov/2); rx = local_center[0] + math.cos(r_rad)*self.vision_length; ry = local_center[1] + math.sin(r_rad)*self.vision_length
+                
+                cone_alpha = 50 if getattr(self, "calmed", False) else 80
+                pygame.draw.polygon(self.cone_surf, list(self.color)+[cone_alpha], [local_center, (lx, ly), (rx, ry)])
+                surface.blit(self.cone_surf, (self.rect.centerx - self.vision_length, self.rect.centery - self.vision_length))
 
     def check_collision(self, player_rect):
         if not self.active: return False
@@ -310,24 +370,59 @@ class Guard:
         for px, py in points:
             dx = px - self.rect.centerx; dy = py - self.rect.centery; dist = math.hypot(dx, dy)
             if dist <= self.vision_length:
+                if self.fov >= 360: return True
                 angle_to_point = -math.degrees(math.atan2(dy, dx))
                 diff = (angle_to_point - self.current_angle + 180) % 360 - 180
                 if abs(diff) < self.fov / 2: return True
         return False
 
 class Deactivator:
-    def __init__(self, x, y, link_id, is_fake=False, color=C_DEACTIVATOR_DEFAULT):
+    def __init__(self, x, y, link_id, is_fake=False, color=C_DEACTIVATOR_DEFAULT, user="p2", hold_time=0.0, cooldown=0.0):
         self.rect = pygame.Rect(x, y, 40, 40)
         self.link_id = link_id
         self.is_pressed = False
         self.is_fake = is_fake 
         self.base_color = color
+        self.user = user            # which player can operate this switch ("p1" or "p2")
+        self.hold_time = hold_time  # seconds of continuous hold needed before it activates (Level 5)
+        self.cooldown = cooldown    # seconds the switch is dead after being released (Level 5)
+        self.charge_start = None
+        self.cooldown_until = 0
+        self.revealed = False       # Level 6: fake switches get marked once triggered
 
     def update(self, player_rect):
-        self.is_pressed = self.rect.colliderect(player_rect)
+        now = pygame.time.get_ticks()
+        colliding = self.rect.colliderect(player_rect)
+
+        # Switch is dead during cooldown
+        if self.cooldown > 0 and now < self.cooldown_until:
+            self.charge_start = None
+            self.is_pressed = False
+            return
+
+        if colliding:
+            if self.hold_time > 0:
+                # Charge-up switch: needs a continuous hold before it flips
+                if self.charge_start is None:
+                    self.charge_start = now
+                self.is_pressed = (now - self.charge_start) >= self.hold_time * 1000
+            else:
+                self.is_pressed = True
+        else:
+            # Releasing an active charge switch starts its cooldown
+            if self.is_pressed and self.cooldown > 0:
+                self.cooldown_until = now + self.cooldown * 1000
+            self.charge_start = None
+            self.is_pressed = False
 
     def draw(self, surface):
-        if self.is_pressed and not self.is_fake:
+        now = pygame.time.get_ticks()
+        in_cooldown = self.cooldown > 0 and now < self.cooldown_until
+
+        if in_cooldown:
+            color = (70, 70, 80)
+            frame_color = (40, 40, 50)
+        elif self.is_pressed and not self.is_fake:
             color = (150, 255, 150) # Green when active
             frame_color = (50, 0, 50)
         else:
@@ -339,8 +434,55 @@ class Deactivator:
             
         pygame.draw.rect(surface, color, self.rect, border_radius=8)
         pygame.draw.rect(surface, frame_color, self.rect.inflate(-10, -10), border_radius=4)
+
+        # Charge progress fill while a hold switch is charging
+        if self.hold_time > 0 and self.charge_start is not None and not self.is_pressed:
+            frac = min(1.0, (now - self.charge_start) / (self.hold_time * 1000))
+            fill_h = int(self.rect.height * frac)
+            fill_rect = pygame.Rect(self.rect.x, self.rect.bottom - fill_h, self.rect.width, fill_h)
+            s = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
+            s.fill((255, 255, 160, 140))
+            surface.blit(s, fill_rect.topleft)
+
+        # Cooldown countdown
+        if in_cooldown:
+            secs = max(0, (self.cooldown_until - now) // 1000 + 1)
+            t = font_small.render(str(secs), True, (220, 220, 220))
+            surface.blit(t, t.get_rect(center=self.rect.center))
+
         if self.is_pressed:
              pygame.draw.circle(surface, (255, 255, 255), self.rect.center, 5)
+
+        # A triggered fake (Level 6) stays marked so the pair can learn the layout
+        if self.is_fake and self.revealed:
+            pygame.draw.line(surface, (255, 60, 60), self.rect.topleft, self.rect.bottomright, 4)
+            pygame.draw.line(surface, (255, 60, 60), self.rect.topright, self.rect.bottomleft, 4)
+
+class Gate:
+    """A wall segment that is solid until its linked switch(es) are held (Level 4+).
+    needs: how many switches with this link must be held at once (Level 5 sync gates use 2).
+    latch: once opened, stays open permanently (progress made together doesn't un-happen)."""
+    def __init__(self, rect, link_id, needs=1, latch=False):
+        self.rect = pygame.Rect(rect)
+        self.link_id = link_id
+        self.needs = needs
+        self.latch = latch
+        self.is_open = False
+
+    def draw(self, surface):
+        if self.is_open:
+            # Faint outline so players still see where the gate sits
+            pygame.draw.rect(surface, (90, 160, 90), self.rect, 2)
+        else:
+            pygame.draw.rect(surface, (225, 150, 40), self.rect)
+            pygame.draw.rect(surface, (140, 90, 20), self.rect, 2)
+            # Hazard dashes
+            if self.rect.width >= self.rect.height:
+                for x in range(self.rect.x + 6, self.rect.right - 6, 18):
+                    pygame.draw.line(surface, (140, 90, 20), (x, self.rect.y + 3), (x + 8, self.rect.bottom - 3), 2)
+            else:
+                for y in range(self.rect.y + 6, self.rect.bottom - 6, 18):
+                    pygame.draw.line(surface, (140, 90, 20), (self.rect.x + 3, y), (self.rect.right - 3, y + 8), 2)
 
 # Level defs
 
@@ -588,6 +730,332 @@ def get_levels():
         ]
     })
 
+    # Level 4: Hand in Hand (mutual dependence + turn taking)
+    # Gates (orange) are solid until the PARTNER holds the linked switch.
+    # P1 operates the BLUE switches (open P2's gates), P2 operates the red ones.
+    # No backups: a deadlock means restarting and coordinating better.
+    # A slow aura "warden" wanders the plaza switches at random, telegraphing its
+    # next stop with a line, so P2's switch-holds must be timed around it.
+    l4_walls = list(base_walls)
+    # P1 side: three horizontal rows
+    l4_walls.append(offset_rect((10, 440, 470, 20)))   # bottom/mid divider (gate G1 fills the right gap)
+    l4_walls.append(offset_rect((160, 220, 475, 20)))  # mid/top divider (gate G2 fills the left gap)
+    l4_walls.append(offset_rect((300, 240, 20, 150)))  # middle row weave wall (hangs from divider)
+    l4_walls.append(offset_rect((450, 330, 20, 130)))  # middle row weave wall (rises from divider)
+    l4_walls.append(offset_rect((180, 460, 20, 120)))  # bottom row weave (hangs)
+    l4_walls.append(offset_rect((340, 530, 20, 120)))  # bottom row weave (rises)
+    l4_walls.append(offset_rect((360, 10, 20, 140)))   # top row split (gate G5 fills the lower gap)
+    # P2 side: left strip, two weave walls, open plaza right, split top rooms
+    l4_walls.append(offset_rect((800, 240, 465, 20)))  # top/bottom divider (gate G3 fills the left gap)
+    l4_walls.append(offset_rect((1000, 80, 20, 160)))  # splits top region (gate G4 fills the upper gap)
+    l4_walls.append(offset_rect((850, 380, 20, 270)))  # weave wall 1 (rises from floor)
+    l4_walls.append(offset_rect((1000, 470, 20, 190))) # weave wall 2 (rises from floor)
+
+    C_P1_SWITCH = (70, 130, 220)
+
+    l4_warden_points = [offset_point((1060, 300)), offset_point((1215, 300)),
+                        offset_point((1215, 595)), offset_point((1060, 595)),
+                        offset_point((1130, 450))]
+
+    levels.append({
+        "name": "Level 4: Hand in Hand",
+        "briefing_p1": [
+            "Orange gates only open while",
+            "P2 holds the matching switch.",
+            "",
+            "Your BLUE switches open P2's",
+            "gates: they need you too.",
+            "",
+            "If you two deadlock, press R,",
+            "regroup, and plan it better."
+        ],
+        "briefing_p2": [
+            "A warden circles the plaza",
+            "switches. The line shows where",
+            "it is heading next: time your",
+            "holds around it.",
+            "",
+            "P1's blue switches open YOUR",
+            "gates. Agree on every move:",
+            "a deadlock means restarting."
+        ],
+        "p1_start": offset_point((60, 580)), "p2_start": offset_point((680, 600)),
+        "key": offset_rect((80, 300, 40, 40)), "chest": offset_rect((560, 50, 40, 40)),
+        "walls": l4_walls,
+        "gates": [
+            {"rect": offset_rect((480, 440, 155, 20)), "id": 1},  # G1: P1 bottom -> middle
+            {"rect": offset_rect((10, 220, 150, 20)),  "id": 2},  # G2: P1 middle -> top-left
+            {"rect": offset_rect((360, 150, 20, 70)),  "id": 6},  # G5: P1 top-left -> top-right (chest side)
+            {"rect": offset_rect((645, 240, 155, 20)), "id": 3},  # G3: P2 strip -> top-left room
+            {"rect": offset_rect((1000, 10, 20, 70)),  "id": 5},  # G4: P2 top-left -> top-right room
+        ],
+        "guards": [
+            # Static guard parked on the chest. No timing window: P2 must hold its switch.
+            {"x": offset_point((480, 60))[0], "y": offset_point((480, 60))[1],
+             "path": [offset_point((480, 60)), offset_point((480, 60))],
+             "angle": 0, "id": 4, "speed": 0, "fov": 60, "len": 170, "color": C_GUARD_DEFAULT},
+            # The warden: slow aura guard wandering the plaza switches at random
+            {"x": l4_warden_points[4][0], "y": l4_warden_points[4][1],
+             "path": l4_warden_points,
+             "angle": 0, "id": 0, "speed": 2, "fov": 360, "len": 95, "color": C_GUARD_DEFAULT,
+             "target": "p2", "random_patrol": True, "pause_frames": 70},
+        ],
+        "deactivators": [
+            # P2 plaza switches (under the warden's watch)
+            {"x": offset_point((1150, 560))[0], "y": offset_point((1150, 560))[1], "id": 1, "fake": False, "color": C_DEACTIVATOR_DEFAULT},  # S1: opens G1
+            {"x": offset_point((1060, 420))[0], "y": offset_point((1060, 420))[1], "id": 2, "fake": False, "color": C_DEACTIVATOR_DEFAULT},  # S2: opens G2
+            {"x": offset_point((1200, 330))[0], "y": offset_point((1200, 330))[1], "id": 6, "fake": False, "color": C_DEACTIVATOR_DEFAULT},  # S4: opens G5
+            # Chest-guard switch, locked behind both blue-gated rooms (the finale)
+            {"x": offset_point((1200, 60))[0],  "y": offset_point((1200, 60))[1],  "id": 4, "fake": False, "color": C_DEACTIVATOR_DEFAULT},  # S3: disables chest guard
+            # P1 switches (blue): open P2's gates
+            {"x": offset_point((400, 30))[0],  "y": offset_point((400, 30))[1],  "id": 3, "fake": False, "color": C_P1_SWITCH, "user": "p1"},  # T1: opens G3
+            {"x": offset_point((600, 180))[0],  "y": offset_point((600, 180))[1],  "id": 5, "fake": False, "color": C_P1_SWITCH, "user": "p1"},  # T2: opens G4
+        ],
+        "instructions": [
+            {"id": "l4_p1_blue", "lines": ["Blue switches open", "P2's gates. Hold them!"], "rect": offset_rect((60, 360, 220, 60)), "start_active": True},
+            {"id": "l4_p2_warden", "lines": ["The warden's line shows", "its next stop. Time it!"], "rect": offset_rect((648, 300, 235, 60)), "start_active": True},
+        ],
+    })
+
+    # Level 5: In Step (attunement, co-regulation, secure base)
+    # Three stacked chambers per side. Paired SYNC GATES between chambers open only
+    # while BOTH players stand on their purple sync pads at the same time, and latch
+    # open permanently once passed (joint progress is permanent).
+    # Standing ready on a pad CALMS the partner's guards to half speed (co-regulation).
+    # Pads are also checkpoints: a caught player returns to their last pad (secure base).
+    l5_walls = list(base_walls)
+    # P1 chamber dividers (sync gates fill the central gaps)
+    l5_walls.append(offset_rect((10, 220, 200, 20)))
+    l5_walls.append(offset_rect((365, 220, 270, 20)))
+    l5_walls.append(offset_rect((10, 440, 200, 20)))
+    l5_walls.append(offset_rect((365, 440, 270, 20)))
+    # P2 chamber dividers
+    l5_walls.append(offset_rect((645, 220, 200, 20)))
+    l5_walls.append(offset_rect((1000, 220, 265, 20)))
+    l5_walls.append(offset_rect((645, 440, 200, 20)))
+    l5_walls.append(offset_rect((1000, 440, 265, 20)))
+
+    C_SYNC = (180, 130, 230)
+
+    levels.append({
+        "name": "Level 5: In Step",
+        "briefing_p1": [
+            "Move IN STEP. Doors between",
+            "chambers open only while you",
+            "are BOTH on your purple pads,",
+            "then they stay open for good.",
+            "",
+            "Standing ready on a pad CALMS",
+            "your partner's guards.",
+            "",
+            "Caught = back to your last pad."
+        ],
+        "briefing_p2": [
+            "Each chamber has its own hazard.",
+            "Clear yours, then wait on the",
+            "purple pad: doors need you BOTH.",
+            "",
+            "Your presence on a pad slows",
+            "P1's guards, and theirs yours.",
+            "",
+            "Pads are your checkpoints.",
+            "Synced doors stay open for good."
+        ],
+        "p1_start": offset_point((60, 60)), "p2_start": offset_point((680, 60)),
+        "key": offset_rect((560, 590, 40, 40)), "chest": offset_rect((560, 50, 40, 40)),
+        "walls": l5_walls,
+        "gates": [
+            {"rect": offset_rect((210, 220, 155, 20)), "id": 11, "needs": 2, "latch": True},  # P1 chamber 1 -> 2
+            {"rect": offset_rect((845, 220, 155, 20)), "id": 11, "needs": 2, "latch": True},  # P2 chamber 1 -> 2
+            {"rect": offset_rect((210, 440, 155, 20)), "id": 12, "needs": 2, "latch": True},  # P1 chamber 2 -> 3
+            {"rect": offset_rect((845, 440, 155, 20)), "id": 12, "needs": 2, "latch": True},  # P2 chamber 2 -> 3
+        ],
+        "guards": [
+            # P1 chambers: slow, readable, dodgeable solo; calmer still with P2 on a pad
+            {"x": offset_point((200, 90))[0], "y": offset_point((200, 90))[1],
+             "path": [offset_point((200, 90)), offset_point((480, 90))],
+             "angle": 0, "id": 0, "speed": 3, "fov": 60, "len": 105, "color": C_GUARD_DEFAULT},
+            {"x": offset_point((320, 330))[0], "y": offset_point((320, 330))[1],
+             "path": [offset_point((320, 330)), offset_point((320, 330))],
+             "angle": 90, "id": 0, "speed": 0, "sweep_speed": 1.2, "fov": 70, "len": 120, "color": C_GUARD_DEFAULT},
+            {"x": offset_point((220, 560))[0], "y": offset_point((220, 560))[1],
+             "path": [offset_point((220, 560)), offset_point((460, 560))],
+             "angle": 0, "id": 0, "speed": 4, "fov": 60, "len": 100, "color": C_GUARD_DEFAULT},
+            # P2 chambers: mirrored hazards
+            {"x": offset_point((880, 100))[0], "y": offset_point((880, 100))[1],
+             "path": [offset_point((880, 100)), offset_point((1150, 100))],
+             "angle": 0, "id": 0, "speed": 3, "fov": 60, "len": 105, "color": C_GUARD_DEFAULT, "target": "p2"},
+            {"x": offset_point((980, 330))[0], "y": offset_point((980, 330))[1],
+             "path": [offset_point((980, 330)), offset_point((980, 330))],
+             "angle": 90, "id": 0, "speed": 0, "sweep_speed": -1.2, "fov": 70, "len": 120, "color": C_GUARD_DEFAULT, "target": "p2"},
+            {"x": offset_point((900, 560))[0], "y": offset_point((900, 560))[1],
+             "path": [offset_point((900, 560)), offset_point((1140, 560))],
+             "angle": 0, "id": 0, "speed": 4, "fov": 60, "len": 100, "color": C_GUARD_DEFAULT, "target": "p2"},
+        ],
+        "deactivators": [
+            # Sync pads. Pairs share a link id; the gates need BOTH held at once.
+            # Each pad calms the PARTNER's guards and checkpoints its own player.
+            {"x": offset_point((60, 150))[0],  "y": offset_point((60, 150))[1],  "id": 11, "fake": False, "color": C_SYNC, "user": "p1", "calms": "p2", "checkpoint": True},
+            {"x": offset_point((700, 150))[0], "y": offset_point((700, 150))[1], "id": 11, "fake": False, "color": C_SYNC, "user": "p2", "calms": "p1", "checkpoint": True},
+            {"x": offset_point((60, 370))[0],  "y": offset_point((60, 370))[1],  "id": 12, "fake": False, "color": C_SYNC, "user": "p1", "calms": "p2", "checkpoint": True},
+            {"x": offset_point((700, 370))[0], "y": offset_point((700, 370))[1], "id": 12, "fake": False, "color": C_SYNC, "user": "p2", "calms": "p1", "checkpoint": True},
+            # Bottom-chamber calm stations (no gate link: pure support + checkpoint,
+            # useful during the key grab and the return trip)
+            {"x": offset_point((60, 600))[0],  "y": offset_point((60, 600))[1],  "id": 13, "fake": False, "color": C_SYNC, "user": "p1", "calms": "p2", "checkpoint": True},
+            {"x": offset_point((700, 600))[0], "y": offset_point((700, 600))[1], "id": 13, "fake": False, "color": C_SYNC, "user": "p2", "calms": "p1", "checkpoint": True},
+        ],
+        "instructions": [
+            {"id": "l5_sync", "lines": ["Doors open only when", "BOTH pads are held"], "rect": offset_rect((230, 130, 205, 60)), "start_active": True},
+            {"id": "l5_calm", "lines": ["Waiting on a pad CALMS", "your partner's guards"], "rect": offset_rect((860, 130, 230, 60)), "start_active": True},
+        ],
+    })
+
+    # Level 6: Blind Trust (asymmetric information, forced verbal communication)
+    # P1's guards have INVISIBLE vision cones; only P2's radar minimap shows them.
+    # P2 faces six identical switches (3 real, 3 fake); only P1's intel panel shows which is which.
+    # Stepping on a fake resets BOTH players and permanently marks the fake with an X.
+    l6_walls = list(base_walls)
+    # P1 side: walled-off pocket (bottom-left) holds the intel panel
+    l6_walls.append(offset_rect((10, 430, 280, 20)))
+    l6_walls.append(offset_rect((290, 430, 20, 220)))
+    # P1 maze
+    l6_walls.append(offset_rect((500, 10, 20, 170)))
+    l6_walls.append(offset_rect((180, 180, 340, 20)))
+    l6_walls.append(offset_rect((470, 320, 20, 180)))
+    # P2 side: walled-off pocket (top-right) holds the radar minimap
+    l6_walls.append(offset_rect((980, 10, 20, 200)))
+    l6_walls.append(offset_rect((980, 210, 290, 20)))
+    # P2 maze
+    l6_walls.append(offset_rect((830, 300, 20, 360)))
+    l6_walls.append(offset_rect((1100, 300, 20, 250)))
+
+    levels.append({
+        "name": "Level 6: Blind Trust",
+        "briefing_p1": [
+            "Your guards' cones are INVISIBLE.",
+            "They only appear on the radar,",
+            "and the radar only runs while P2",
+            "stands on the RADAR pad.",
+            "",
+            "Stand on your INTEL pad to reveal",
+            "which of P2's switches are real.",
+            "A fake resets you BOTH."
+        ],
+        "briefing_p2": [
+            "Six identical switches: 3 real,",
+            "3 fake. P1's INTEL pad reveals",
+            "which is which. A fake resets",
+            "BOTH, and stays unmarked:",
+            "REMEMBER it together.",
+            "",
+            "You can hold a switch OR man the",
+            "RADAR pad that shows P1 the",
+            "hidden cones. Never both."
+        ],
+        "p1_start": offset_point((60, 60)), "p2_start": offset_point((680, 620)),
+        "key": offset_rect((560, 590, 40, 40)), "chest": offset_rect((560, 50, 40, 40)),
+        "walls": l6_walls,
+        "guards": [
+            {"x": offset_point((350, 120))[0], "y": offset_point((350, 120))[1],
+             "path": [offset_point((350, 120)), offset_point((560, 120))],
+             "angle": 0, "id": 1, "speed": 6, "sweep_speed": 0, "fov": 90, "len": 170, "color": C_GUARD_DEFAULT, "hidden_cone": True},
+            {"x": offset_point((40, 330))[0], "y": offset_point((40, 330))[1],
+             "path": [offset_point((40, 330)), offset_point((40, 330))],
+             "angle": 0, "id": 2, "speed": 0, "sweep_speed": 3, "fov": 80, "len": 160, "color": C_GUARD_DEFAULT, "hidden_cone": True},
+            {"x": offset_point((560, 500))[0], "y": offset_point((560, 500))[1],
+             "path": [offset_point((560, 500)), offset_point((560, 500))],
+             "angle": 90, "id": 3, "speed": 0, "sweep_speed": 3, "fov": 90, "len": 170, "color": C_GUARD_DEFAULT, "hidden_cone": True},
+        ],
+        "deactivators": [
+            # Real switches (all six look identical to P2)
+            {"x": offset_point((700, 90))[0],   "y": offset_point((700, 90))[1],   "id": 1,   "fake": False, "color": C_DEACTIVATOR_DEFAULT},
+            {"x": offset_point((940, 380))[0],  "y": offset_point((940, 380))[1],  "id": 2,   "fake": False, "color": C_DEACTIVATOR_DEFAULT},
+            {"x": offset_point((1200, 580))[0], "y": offset_point((1200, 580))[1], "id": 3,   "fake": False, "color": C_DEACTIVATOR_DEFAULT},
+            # Fakes: link 777 = shared reset
+            {"x": offset_point((900, 90))[0],   "y": offset_point((900, 90))[1],   "id": 777, "fake": True,  "color": C_DEACTIVATOR_DEFAULT},
+            {"x": offset_point((700, 500))[0],  "y": offset_point((700, 500))[1],  "id": 777, "fake": True,  "color": C_DEACTIVATOR_DEFAULT},
+            {"x": offset_point((1150, 380))[0], "y": offset_point((1150, 380))[1], "id": 777, "fake": True,  "color": C_DEACTIVATOR_DEFAULT},
+        ],
+        "consoles": [
+            # Panels only render while the owning player stands on their pad.
+            {"rect": offset_rect((120, 30, 56, 56)),  "owner": "p1", "label": "INTEL"},
+            {"rect": offset_rect((665, 550, 56, 56)), "owner": "p2", "label": "RADAR"},
+        ],
+        "instructions": [],
+    })
+
+    # Level 7: Lighthouses (full trust under invisible threat, calm planning)
+    # P1's guards are COMPLETELY invisible: bodies and beams. They never move,
+    # only their beams revolve, slowly and at a constant rate (learnable rhythm).
+    # Anti-frustration: P1 has a proximity pulse ring (green -> red as a hidden
+    # guard nears), and detection starts a visible alert with a grace window
+    # to step back before it counts as a catch.
+    # P2's switches FREEZE a beam in place while held, which also reveals the
+    # guard as a faint ghost. P2 must predict where the beam will point by the
+    # time they reach the switch: the radar pad and the switches are far apart.
+    l7_walls = list(base_walls)
+    # P1 side: light structure to shape the route (beams ignore walls)
+    l7_walls.append(offset_rect((150, 250, 320, 20)))
+    l7_walls.append(offset_rect((470, 10, 20, 260)))
+    l7_walls.append(offset_rect((240, 470, 20, 180)))
+    # P2 side: travel structure between the radar pad and the freeze switches
+    l7_walls.append(offset_rect((830, 150, 20, 250)))
+    l7_walls.append(offset_rect((1060, 400, 20, 250)))
+
+    levels.append({
+        "name": "Level 7: Lighthouses",
+        "briefing_p1": [
+            "The guards here are COMPLETELY",
+            "invisible: bodies and beams.",
+            "",
+            "Your pulse ring warms from green",
+            "to red as you near one. If",
+            "spotted, you get a short alert",
+            "(!) to step back before it",
+            "counts. Move slow. Listen."
+        ],
+        "briefing_p2": [
+            "Your RADAR pad shows the slow",
+            "revolving beams on P1's side.",
+            "",
+            "Your switches FREEZE a beam in",
+            "place while held, and reveal",
+            "that guard as a faint ghost.",
+            "Beams keep turning while you",
+            "walk: predict, then commit."
+        ],
+        "p1_start": offset_point((60, 60)), "p2_start": offset_point((680, 620)),
+        "key": offset_rect((560, 600, 40, 40)), "chest": offset_rect((560, 50, 40, 40)),
+        "walls": l7_walls,
+        "switch_mode": "freeze",
+        "detect_grace": 0.9,
+        "proximity_cue": True,
+        "guards": [
+            {"x": offset_point((300, 140))[0], "y": offset_point((300, 140))[1],
+             "path": [offset_point((300, 140)), offset_point((300, 140))],
+             "angle": 0, "id": 1, "speed": 0, "sweep_speed": 0.55, "rotate": True,
+             "fov": 70, "len": 190, "color": C_GUARD_DEFAULT, "hidden_body": True},
+            {"x": offset_point((140, 440))[0], "y": offset_point((140, 440))[1],
+             "path": [offset_point((140, 440)), offset_point((140, 440))],
+             "angle": 90, "id": 2, "speed": 0, "sweep_speed": -0.7, "rotate": True,
+             "fov": 70, "len": 180, "color": C_GUARD_DEFAULT, "hidden_body": True},
+            {"x": offset_point((480, 430))[0], "y": offset_point((480, 430))[1],
+             "path": [offset_point((480, 430)), offset_point((480, 430))],
+             "angle": 180, "id": 3, "speed": 0, "sweep_speed": 0.65, "rotate": True,
+             "fov": 70, "len": 190, "color": C_GUARD_DEFAULT, "hidden_body": True},
+        ],
+        "deactivators": [
+            # Freeze switches: hold to lock the matching beam where it points
+            {"x": offset_point((700, 90))[0],   "y": offset_point((700, 90))[1],   "id": 1, "fake": False, "color": C_DEACTIVATOR_DEFAULT},
+            {"x": offset_point((950, 380))[0],  "y": offset_point((950, 380))[1],  "id": 2, "fake": False, "color": C_DEACTIVATOR_DEFAULT},
+            {"x": offset_point((1200, 580))[0], "y": offset_point((1200, 580))[1], "id": 3, "fake": False, "color": C_DEACTIVATOR_DEFAULT},
+        ],
+        "consoles": [
+            {"rect": offset_rect((665, 550, 56, 56)), "owner": "p2", "label": "RADAR"},
+        ],
+        "instructions": [],
+    })
+
     return levels
 
 # game manager
@@ -598,10 +1066,14 @@ class Game:
         self.current_level_idx = 0
         self.state = "MAIN_MENU"
         self.menu_buttons = [
-            {"text": "Tutorial", "level_idx": 0, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 270, 200, 50)},
-            {"text": "Level 1", "level_idx": 1, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 340, 200, 50)},
-            {"text": "Level 2", "level_idx": 2, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 410, 200, 50)},
-            {"text": "Level 3", "level_idx": 3, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 480, 200, 50)}
+            {"text": "Tutorial", "level_idx": 0, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 170, 200, 46)},
+            {"text": "Level 1", "level_idx": 1, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 230, 200, 46)},
+            {"text": "Level 2", "level_idx": 2, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 290, 200, 46)},
+            {"text": "Level 3", "level_idx": 3, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 350, 200, 46)},
+            {"text": "Level 4", "level_idx": 4, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 410, 200, 46)},
+            {"text": "Level 5", "level_idx": 5, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 470, 200, 46)},
+            {"text": "Level 6", "level_idx": 6, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 530, 200, 46)},
+            {"text": "Level 7", "level_idx": 7, "rect": pygame.Rect(SCREEN_WIDTH//2 - 100, 590, 200, 46)}
         ]
         
         self.p1_passed_obs1 = False
@@ -632,11 +1104,28 @@ class Game:
         
         self.guards = []
         for g in data["guards"]:
-            self.guards.append(Guard(g["x"], g["y"], g["path"], g["angle"], g["id"], g["speed"], g["fov"], g["len"], g.get("sweep_speed",0), g.get("color", C_GUARD_DEFAULT)))
+            self.guards.append(Guard(g["x"], g["y"], g["path"], g["angle"], g["id"], g["speed"], g["fov"], g["len"], g.get("sweep_speed",0), g.get("color", C_GUARD_DEFAULT), g.get("target", "p1"), g.get("hidden_cone", False), g.get("hidden_body", False), g.get("rotate", False), g.get("random_patrol", False), g.get("pause_frames", 0)))
             
         self.deactivators = []
         for d_data in data["deactivators"]:
-            self.deactivators.append(Deactivator(d_data["x"], d_data["y"], d_data["id"], d_data.get("fake", False), d_data.get("color", C_DEACTIVATOR_DEFAULT)))
+            d = Deactivator(d_data["x"], d_data["y"], d_data["id"], d_data.get("fake", False), d_data.get("color", C_DEACTIVATOR_DEFAULT), d_data.get("user", "p2"), d_data.get("hold_time", 0.0), d_data.get("cooldown", 0.0))
+            d.calms = d_data.get("calms")            # Level 5: while held, calm guards targeting this player
+            d.checkpoint = d_data.get("checkpoint", False)  # Level 5: pad doubles as a respawn point
+            self.deactivators.append(d)
+
+        self.gates = []
+        for gate_data in data.get("gates", []):
+            self.gates.append(Gate(gate_data["rect"], gate_data["id"], gate_data.get("needs", 1), gate_data.get("latch", False)))
+
+        self.shared_fate = data.get("shared_fate", False)
+        self.switch_mode = data.get("switch_mode", "disable")   # "freeze" on Level 7
+        self.detect_grace = data.get("detect_grace", 0)         # seconds of alert before a catch counts
+        self.proximity_cue = data.get("proximity_cue", False)   # Level 7: pulse ring near hidden guards
+        self.alert_start = {"p1": None, "p2": None}
+        self.consoles = [{"rect": pygame.Rect(c["rect"]), "owner": c["owner"], "label": c["label"]}
+                         for c in data.get("consoles", [])]
+        self.flash_msg = None
+        self.flash_until = 0
 
         self.p1_zone_yellow = None
         self.p1_zone_pink = None
@@ -687,8 +1176,10 @@ class Game:
             pass
 
         elif self.state == "PLAYING":
-            self.p1.update(keys, self.walls)
-            self.p2.update(keys, self.walls)
+            # Closed gates are solid walls (state from last frame's switch check)
+            collidable_walls = self.walls + [g.rect for g in self.gates if not g.is_open]
+            self.p1.update(keys, collidable_walls)
+            self.p2.update(keys, collidable_walls)
 
             # instruction logic for level 1
             if self.current_level_idx == 1:
@@ -743,10 +1234,13 @@ class Game:
 
 
             active_links = {}
+            calm_targets = set()
             for d in self.deactivators:
                 if self.current_level_idx == 0: continue
                 
-                d.update(self.p2.rect)
+                # Route the switch to whichever player operates it
+                operator = self.p1 if d.user == "p1" else self.p2
+                d.update(operator.rect)
                 
                 if d.is_pressed:
                     # CHECK FOR SPECIAL TRAP SWITCHES
@@ -760,24 +1254,83 @@ class Game:
                         self.p1.is_frozen = False
                         self.p1.is_trapped = False
                         self.p2.inverted_controls = False
+
+                    # FAKE SWITCH WITH SHARED CONSEQUENCES (Level 6)
+                    # No visual reveal: the pair must REMEMBER which switch this was.
+                    elif d.link_id == 777:
+                        self.p1.reset()
+                        self.p2.reset()
+                        self.flash_msg = "FAKE SWITCH! Both players reset. Remember which one that was."
+                        self.flash_until = pygame.time.get_ticks() + 2500
                     
                     elif not d.is_fake: 
-                        active_links[d.link_id] = True
+                        active_links[d.link_id] = active_links.get(d.link_id, 0) + 1
+                        if d.calms:
+                            calm_targets.add(d.calms)      # calm the guards hunting this player
+                        if d.checkpoint:
+                            operator.start_pos = (d.rect.x - 4, d.rect.y - 4)  # secure base
+
+            # Gates open while enough linked switches are held.
+            # latch: once a sync gate opens, it stays open (joint progress is permanent).
+            # Safety: a closing gate waits until no body overlaps its own slab, so nobody
+            # is entombed inside a wall. Room-level deadlocks remain possible by design.
+            for gate in self.gates:
+                want_open = active_links.get(gate.link_id, 0) >= gate.needs
+                if gate.latch and gate.is_open:
+                    want_open = True
+                if not want_open and gate.is_open:
+                    if gate.rect.colliderect(self.p1.rect) or gate.rect.colliderect(self.p2.rect):
+                        want_open = True  # hold until the doorway itself is clear
+                gate.is_open = want_open
             
+            seen = {"p1": False, "p2": False}
             for g in self.guards:
-                g.active = not active_links.get(g.link_id, False)
+                if self.switch_mode == "freeze":
+                    g.frozen = active_links.get(g.link_id, 0) > 0   # Level 7: lock the beam in place
+                else:
+                    g.active = active_links.get(g.link_id, 0) == 0
+                g.calmed = g.target in calm_targets
                 g.update()
                 
-                # COLLISION & RESPAWN LOGIC 
-                if g.check_collision(self.p1.rect):
-                    self.p1.reset() 
+                target_player = self.p1 if g.target == "p1" else self.p2
+                if g.check_collision(target_player.rect):
+                    seen[g.target] = True
+
+            # CATCH LOGIC (with optional grace period: spotted is a warning, not yet a catch)
+            now = pygame.time.get_ticks()
+            for tname in ("p1", "p2"):
+                caught = False
+                if self.detect_grace > 0:
+                    if seen[tname]:
+                        if self.alert_start[tname] is None:
+                            self.alert_start[tname] = now
+                        elif now - self.alert_start[tname] >= self.detect_grace * 1000:
+                            caught = True
+                            self.alert_start[tname] = None
+                    else:
+                        self.alert_start[tname] = None
+                else:
+                    caught = seen[tname]
+                
+                if caught:
+                    target_player = self.p1 if tname == "p1" else self.p2
+                    p1_was_reset = (target_player is self.p1) or self.shared_fate
+                    
+                    if self.shared_fate:
+                        # Either player caught means BOTH respawn (no blame)
+                        self.p1.reset()
+                        self.p2.reset()
+                        self.flash_msg = "CAUGHT! Shared fate: both players respawn."
+                        self.flash_until = pygame.time.get_ticks() + 2000
+                    else:
+                        target_player.reset()
                     
                     # If P1 respawns, reset progression flags for Level 1 logic
                     if self.current_level_idx == 1:
                          self.p1_passed_obs1 = False
                          self.p1_passed_obs2 = False
                     
-                    if self.p1_has_key:
+                    if p1_was_reset and self.p1_has_key:
                         self.p1_has_key = False
                         self.key_rect = pygame.Rect(self.key_data)
                         self.p1.is_trapped = False
@@ -818,7 +1371,18 @@ class Game:
             
             for wall in self.walls: pygame.draw.rect(screen, current_wall_color, wall)
             
+            for gate in self.gates: gate.draw(screen)
+            
             for d in self.deactivators: d.draw(screen)
+
+            # Console pads (drawn as floor objects so players stay visible on top)
+            for c in self.consoles:
+                live = self.console_live(c["owner"])
+                base = (32, 130, 140) if live else (34, 70, 80)
+                pygame.draw.rect(screen, base, c["rect"], border_radius=6)
+                pygame.draw.rect(screen, (90, 220, 230), c["rect"], 2, border_radius=6)
+                lbl = font_small.render(c["label"], True, (90, 220, 230))
+                screen.blit(lbl, (c["rect"].centerx - lbl.get_width() // 2, c["rect"].y - 22))
             
             if not self.p1_has_key:
                 draw_visual_key(screen, self.key_rect)
@@ -827,10 +1391,65 @@ class Game:
             
             for g in self.guards: g.draw(screen)
             self.p1.draw(screen); self.p2.draw(screen)
+
+            # LEVEL 7: proximity pulse, a soft ring around P1 that warms up near hidden guards
+            if self.proximity_cue:
+                near = None
+                for g in self.guards:
+                    if g.hidden_body and g.active and not g.frozen:
+                        dist = math.hypot(g.rect.centerx - self.p1.rect.centerx, g.rect.centery - self.p1.rect.centery)
+                        near = dist if near is None else min(near, dist)
+                if near is not None and near < 280:
+                    t = 1 - (near / 280)  # 0 far .. 1 close
+                    pulse = 3 * math.sin(pygame.time.get_ticks() * 0.008)
+                    radius = int(34 + pulse)
+                    color = (int(120 + 135 * t), int(190 - 120 * t), 70)
+                    ring = pygame.Surface((radius * 2 + 4, radius * 2 + 4), pygame.SRCALPHA)
+                    pygame.draw.circle(ring, list(color) + [int(50 + 150 * t)], (radius + 2, radius + 2), radius, 2)
+                    screen.blit(ring, (self.p1.rect.centerx - radius - 2, self.p1.rect.centery - radius - 2))
+
+            # DETECTION ALERT (grace period): spotted, but there is still a beat to step back
+            now = pygame.time.get_ticks()
+            for tname, player in (("p1", self.p1), ("p2", self.p2)):
+                if self.alert_start[tname] is not None:
+                    frac = min(1.0, (now - self.alert_start[tname]) / max(1, self.detect_grace * 1000))
+                    r = int(30 + 6 * math.sin(now * 0.03))
+                    pygame.draw.circle(screen, (255, int(200 - 160 * frac), 60), player.rect.center, r, 3)
+                    mark = font_ui.render("!", True, (255, 210, 60))
+                    screen.blit(mark, (player.rect.centerx - mark.get_width() // 2, player.rect.y - 34))
             
             # DRAW TUTORIAL BOXES
             for instruction in self.tutorial_instructions:
                 instruction.draw(screen)
+
+            # LEVELS 6-7: information panels (each runs only while its owner mans the pad)
+            if self.current_level_idx in (6, 7):
+                if self.console_live("p2"):
+                    self.draw_l6_radar()
+                else:
+                    self.draw_l6_panel_offline(pygame.Rect(1012, 96, 246, 160), (1012, 76),
+                                               "Guard radar: OFFLINE", C_P2,
+                                               "P2: stand on the", "RADAR pad")
+                if self.current_level_idx == 6:
+                    if self.console_live("p1"):
+                        self.draw_l6_intel()
+                    else:
+                        self.draw_l6_panel_offline(pygame.Rect(32, 536, 236, 156), (32, 516),
+                                                   "Switch intel: OFFLINE", C_P1,
+                                                   "P1: stand on the", "INTEL pad")
+
+            # SHARED FLASH MESSAGE (fake switch / shared fate)
+            if self.flash_msg and pygame.time.get_ticks() < self.flash_until:
+                flash_surf = font_ui.render(self.flash_msg, True, (255, 80, 80))
+                padding = 15
+                box_w = flash_surf.get_width() + padding * 2
+                box_h = flash_surf.get_height() + padding * 2
+                box_rect = pygame.Rect(SCREEN_WIDTH//2 - box_w//2, 85, box_w, box_h)
+                s = pygame.Surface((box_rect.width, box_rect.height), pygame.SRCALPHA)
+                s.fill(C_TUTORIAL_BOX)
+                screen.blit(s, (box_rect.x, box_rect.y))
+                pygame.draw.rect(screen, C_TUTORIAL_BORDER, box_rect, 2, border_radius=8)
+                screen.blit(flash_surf, (box_rect.x + padding, box_rect.y + padding))
 
             pygame.draw.rect(screen, C_HUD_BG, (0, 0, SCREEN_WIDTH, HUD_OFFSET))
             key_status_text = "Key: Retrieved" if self.p1_has_key else "Key: Awaiting Retrieval"
@@ -876,6 +1495,120 @@ class Game:
             draw_centered_text(screen, "Click 'M' to Return to Menu", 100, font_ui)
 
         pygame.display.flip()
+
+    def console_live(self, owner):
+        """A console panel is live only while the owning player stands on their pad."""
+        p = self.p1 if owner == "p1" else self.p2
+        for c in self.consoles:
+            if c["owner"] == owner and p.rect.colliderect(c["rect"]):
+                return True
+        return False
+
+    def draw_l6_panel_offline(self, map_rect, label_pos, label_text, color, line1, line2):
+        label = font_small.render(label_text, True, color)
+        screen.blit(label, label_pos)
+        panel = pygame.Surface(map_rect.size, pygame.SRCALPHA)
+        panel.fill((18, 18, 28, 215))
+        screen.blit(panel, map_rect.topleft)
+        pygame.draw.rect(screen, (90, 90, 110), map_rect, 2, border_radius=4)
+        t1 = font_small.render(line1, True, (140, 140, 160))
+        t2 = font_small.render(line2, True, (140, 140, 160))
+        screen.blit(t1, (map_rect.centerx - t1.get_width() // 2, map_rect.centery - 20))
+        screen.blit(t2, (map_rect.centerx - t2.get_width() // 2, map_rect.centery + 2))
+
+    def draw_l6_radar(self):
+        """Guard radar: a minimap of P1's side that DOES show the hidden vision cones.
+        Renders only while P2 mans the RADAR pad."""
+        label = font_small.render("Guard radar: LIVE", True, C_P2)
+        screen.blit(label, (1012, 76))
+        
+        map_rect = pygame.Rect(1012, 96, 246, 160)
+        src = pygame.Rect(10, 10 + HUD_OFFSET, 625, 640)
+        sx = map_rect.width / src.width
+        sy = map_rect.height / src.height
+        s = min(sx, sy)
+        
+        panel = pygame.Surface(map_rect.size, pygame.SRCALPHA)
+        panel.fill((18, 18, 28, 215))
+        
+        def mp(x, y):
+            return ((x - src.x) * sx, (y - src.y) * sy)
+        
+        # Walls of P1's side
+        for w in self.walls:
+            c = w.clip(src)
+            if c.width > 0 and c.height > 0:
+                wx, wy = mp(c.x, c.y)
+                pygame.draw.rect(panel, (110, 120, 140), (wx, wy, max(2, c.width * sx), max(2, c.height * sy)))
+        
+        # Guards and their (otherwise hidden) cones
+        for g in self.guards:
+            if g.rect.centerx >= 640: continue
+            gx, gy = mp(g.rect.centerx, g.rect.centery)
+            if g.active:
+                rad = math.radians(-g.current_angle)
+                L = g.vision_length * s
+                l_rad = rad - math.radians(g.fov / 2)
+                r_rad = rad + math.radians(g.fov / 2)
+                pts = [(gx, gy),
+                       (gx + math.cos(l_rad) * L, gy + math.sin(l_rad) * L),
+                       (gx + math.cos(r_rad) * L, gy + math.sin(r_rad) * L)]
+                pygame.draw.polygon(panel, (255, 60, 60, 110), pts)
+            dot_color = (90, 220, 235) if g.frozen else ((255, 70, 70) if g.active else (90, 90, 90))
+            pygame.draw.circle(panel, dot_color, (int(gx), int(gy)), 4)
+        
+        # Key, chest, P1
+        if not self.p1_has_key:
+            kx, ky = mp(self.key_rect.centerx, self.key_rect.centery)
+            pygame.draw.circle(panel, C_KEY, (int(kx), int(ky)), 3)
+        cx, cy = mp(self.chest_rect.centerx, self.chest_rect.centery)
+        pygame.draw.rect(panel, C_CHEST, (cx - 3, cy - 3, 7, 7))
+        px, py = mp(self.p1.rect.centerx, self.p1.rect.centery)
+        pygame.draw.circle(panel, C_P1, (int(px), int(py)), 4)
+        
+        screen.blit(panel, map_rect.topleft)
+        pygame.draw.rect(screen, C_P2, map_rect, 2, border_radius=4)
+
+    def draw_l6_intel(self):
+        """Switch intel: a schematic of P2's side marking which switches are real or fake.
+        Renders only while P1 mans the INTEL pad."""
+        label = font_small.render("Switch intel: LIVE", True, C_P1)
+        screen.blit(label, (32, 516))
+        
+        map_rect = pygame.Rect(32, 536, 236, 156)
+        src = pygame.Rect(645, 10 + HUD_OFFSET, 625, 640)
+        sx = map_rect.width / src.width
+        sy = map_rect.height / src.height
+        
+        panel = pygame.Surface(map_rect.size, pygame.SRCALPHA)
+        panel.fill((18, 18, 28, 215))
+        
+        def mp(x, y):
+            return ((x - src.x) * sx, (y - src.y) * sy)
+        
+        # Walls of P2's side for spatial reference
+        for w in self.walls:
+            c = w.clip(src)
+            if c.width > 0 and c.height > 0:
+                wx, wy = mp(c.x, c.y)
+                pygame.draw.rect(panel, (110, 120, 140), (wx, wy, max(2, c.width * sx), max(2, c.height * sy)))
+        
+        # Switches: green ring = real, red X = fake
+        for d in self.deactivators:
+            if d.rect.centerx < 640: continue
+            dx, dy = mp(d.rect.centerx, d.rect.centery)
+            if d.is_fake:
+                pygame.draw.line(panel, (255, 70, 70), (dx - 5, dy - 5), (dx + 5, dy + 5), 2)
+                pygame.draw.line(panel, (255, 70, 70), (dx - 5, dy + 5), (dx + 5, dy - 5), 2)
+            else:
+                pygame.draw.circle(panel, (90, 230, 90), (int(dx), int(dy)), 5, 2)
+        
+        # Live P2 position so P1 can give directions
+        px, py = mp(self.p2.rect.centerx, self.p2.rect.centery)
+        pygame.draw.circle(panel, C_P2, (int(px), int(py)), 4)
+        
+        screen.blit(panel, map_rect.topleft)
+        pygame.draw.rect(screen, C_P1, map_rect, 2, border_radius=4)
 
     def draw_main_menu(self):
         draw_centered_text(screen, "DUOS & DON'TS", -250, font_title, C_P1)
@@ -943,6 +1676,10 @@ async def main():
                         elif event.key == pygame.K_1: game.load_level(1) 
                         elif event.key == pygame.K_2: game.load_level(2)
                         elif event.key == pygame.K_3: game.load_level(3)
+                        elif event.key == pygame.K_4: game.load_level(4)
+                        elif event.key == pygame.K_5: game.load_level(5)
+                        elif event.key == pygame.K_6: game.load_level(6)
+                        elif event.key == pygame.K_7: game.load_level(7)
 
                 # --- M Key for Main Menu ---
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
